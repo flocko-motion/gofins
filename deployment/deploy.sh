@@ -41,13 +41,13 @@ fi
 
 echo "=== Building Docker images ==="
 cd deployment
-docker-compose build --build-arg GIT_HASH=$GIT_HASH
+docker compose build --build-arg GIT_HASH=$GIT_HASH
 
 echo "=== Starting containers ==="
-docker-compose up -d
+docker compose up -d
 
 echo "=== Deployment complete ==="
-docker-compose ps
+docker compose ps
 echo ""
 echo "Services running on:"
 echo "  - PostgreSQL: localhost:7701"

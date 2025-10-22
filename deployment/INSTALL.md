@@ -3,9 +3,15 @@
 ## Prerequisites
 
 ```bash
-# Install Docker
+# Install Docker (official method)
 sudo apt update
-sudo apt install docker.io docker-compose
+sudo apt install -y ca-certificates curl
+sudo install -m 0755 -d /etc/apt/keyrings
+sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+sudo chmod a+r /etc/apt/keyrings/docker.asc
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+sudo apt update
+sudo apt install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
 
 # Enable Apache modules
 sudo a2enmod proxy proxy_http headers rewrite
@@ -23,14 +29,14 @@ sudo chown -R $(whoami):$(whoami) gofins
 # 2. Configure environment
 cd /opt/gofins/deployment
 cp .env.example .env
-nano .env  # Set DB_PASSWORD
+sed -i "s/DB_PASSWORD=.*/DB_PASSWORD=$(openssl rand -base64 32)/" .env
 
-# 3. Create user(s)
+# 3. Create user(s) (still in deployment/)
 sudo htpasswd -c .htpasswd yourusername
 sudo htpasswd .htpasswd friend1  # Add more users
 
 # 4. Deploy (handles Apache, systemd, Docker automatically)
-sudo ./deploy.sh
+sudo bash deploy.sh
 ```
 
 That's it! The deploy script will:
