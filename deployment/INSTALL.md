@@ -18,7 +18,7 @@ sudo systemctl restart apache2
 # 1. Clone repo
 cd /opt
 sudo git clone https://github.com/flocko-motion/gofins.git
-sudo chown -R webmaster:webmaster gofins
+sudo chown -R $(whoami):$(whoami) gofins
 
 # 2. Configure environment
 cd /opt/gofins/deployment
