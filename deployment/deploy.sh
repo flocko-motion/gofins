@@ -43,14 +43,16 @@ echo "=== Building Docker images ==="
 cd deployment
 docker compose build --build-arg GIT_HASH=$GIT_HASH
 
-echo "=== Starting containers ==="
-docker compose up -d
+echo "=== Restarting gofins service ==="
+sudo systemctl restart gofins
 
 echo "=== Deployment complete ==="
+sudo systemctl status gofins --no-pager
+echo ""
 docker compose ps
 echo ""
 echo "Services running on:"
 echo "  - PostgreSQL: localhost:7701"
 echo "  - API:        localhost:7702"
 echo "  - UI:         localhost:7703"
-echo "  - Public:     http://$(hostname -f) (via Apache)"
+echo "  - Public:     http://$(hostname -f)/gofins (via Apache)"
