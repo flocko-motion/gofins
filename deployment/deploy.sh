@@ -44,6 +44,7 @@ cd deployment
 docker compose build --build-arg GIT_HASH=$GIT_HASH
 
 echo "=== Restarting gofins service ==="
+sudo systemctl daemon-reload
 sudo systemctl restart gofins
 
 echo "=== Deployment complete ==="
