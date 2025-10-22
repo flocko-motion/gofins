@@ -31,11 +31,15 @@ cd /opt/gofins/deployment
 cp .env.example .env
 sed -i "s/DB_PASSWORD=.*/DB_PASSWORD=$(openssl rand -base64 32)/" .env
 
-# 3. Create user(s) (still in deployment/)
+# 3. Configure Apache
+cp apache-gofins.conf.example apache-gofins.conf
+nano apache-gofins.conf  # Edit ServerName and SSL certificate paths
+
+# 4. Create user(s) (still in deployment/)
 sudo htpasswd -c .htpasswd yourusername
 sudo htpasswd .htpasswd friend1  # Add more users
 
-# 4. Deploy (handles Apache, systemd, Docker automatically)
+# 5. Deploy (handles Apache, systemd, Docker automatically)
 sudo bash deploy.sh
 ```
 
