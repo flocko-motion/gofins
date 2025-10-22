@@ -152,9 +152,14 @@ func newClient(apiKeyPath *string) (*Client, error) {
 	}, nil
 }
 
-// readAPIKey reads the API key from the specified file path
+// readAPIKey reads the API key from environment variable or file
 func readAPIKey(apiKeyPath string) (string, error) {
-	// Expand path (handle ~ and convert to absolute path)
+	// Try environment variable first (for Docker)
+	if apiKey := os.Getenv("FMP_API_KEY"); apiKey != "" {
+		return strings.TrimSpace(apiKey), nil
+	}
+	
+	// Fallback to file (for local development)
 	expandedPath, err := files.ExpandPath(apiKeyPath)
 	if err != nil {
 		return "", fmt.Errorf("failed to expand path: %w", err)
@@ -162,7 +167,7 @@ func readAPIKey(apiKeyPath string) (string, error) {
 
 	data, err := os.ReadFile(expandedPath)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("FMP_API_KEY env var not set and failed to read key file: %w", err)
 	}
 	return strings.TrimSpace(string(data)), nil
 }

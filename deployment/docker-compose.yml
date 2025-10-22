@@ -24,6 +24,9 @@ services:
       DB_NAME: gofins
       DB_USER: gofins
       DB_PASSWORD: ${DB_PASSWORD}
+      FMP_API_KEY: ${FMP_API_KEY}
+    volumes:
+      - fins_cache:/root/.fins/cache
     ports:
       - "127.0.0.1:7702:8080"
     depends_on:
@@ -42,3 +45,4 @@ services:
 
 volumes:
   postgres_data:
+  fins_cache:

@@ -3,6 +3,7 @@ package db
 import (
 	"database/sql"
 	"fmt"
+	"os"
 	"sync"
 	"time"
 
@@ -10,6 +11,13 @@ import (
 	"github.com/flocko-motion/gofins/pkg/log"
 	_ "github.com/lib/pq"
 )
+
+func getEnvOrDefault(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return defaultValue
+}
 
 var dbLogger *log.Logger
 
@@ -45,15 +53,26 @@ func Db() *DB {
 	return globalDB
 }
 
-// newDB creates a new database connection with hardcoded config
+// newDB creates a new database connection
 func newDB() (*DB, error) {
-	// Read password from config
-	password, err := files.GetEnvValue("~/.fins/config/db.env", "POSTGRES_PASSWORD")
-	if err != nil {
-		return nil, fmt.Errorf("failed to read DB password: %w", err)
+	// Try environment variables first (for Docker), then fall back to config file (for local dev)
+	host := getEnvOrDefault("DB_HOST", "localhost")
+	port := getEnvOrDefault("DB_PORT", "5432")
+	user := getEnvOrDefault("DB_USER", "fins")
+	dbname := getEnvOrDefault("DB_NAME", "fins")
+	
+	password := getEnvOrDefault("DB_PASSWORD", "")
+	if password == "" {
+		// Fallback to config file for local development
+		var err error
+		password, err = files.GetEnvValue("~/.fins/config/db.env", "POSTGRES_PASSWORD")
+		if err != nil {
+			return nil, fmt.Errorf("failed to read DB password from env or config file: %w", err)
+		}
 	}
 
-	connStr := fmt.Sprintf("host=localhost port=5432 user=fins password=%s dbname=fins sslmode=disable", password)
+	connStr := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable", 
+		host, port, user, password, dbname)
 
 	conn, err := sql.Open("postgres", connStr)
 	if err != nil {
