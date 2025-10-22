@@ -33,7 +33,9 @@ sed -i "s/DB_PASSWORD=.*/DB_PASSWORD=$(openssl rand -base64 32)/" .env
 
 # 3. Configure Apache
 cp apache-gofins.conf.example apache-gofins.conf
-nano apache-gofins.conf  # Edit ServerName and SSL certificate paths
+# Replace 'yourdomain.com' with your actual domain
+sed -i 's/yourdomain.com/<youractualdomain.whatever>/g' apache-gofins.conf
+# Or manually edit: nano apache-gofins.conf
 
 # 4. Create user(s) (still in deployment/)
 sudo htpasswd -c .htpasswd yourusername
