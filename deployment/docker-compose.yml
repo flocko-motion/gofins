@@ -11,7 +11,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
-      - "127.0.0.1:5432:5432"
+      - "127.0.0.1:7701:5432"
     restart: unless-stopped
 
   api:
@@ -27,7 +27,7 @@ services:
       DB_USER: gofins
       DB_PASSWORD: ${DB_PASSWORD}
     ports:
-      - "127.0.0.1:8080:8080"
+      - "127.0.0.1:7702:8080"
     depends_on:
       - db
     restart: unless-stopped
@@ -39,7 +39,7 @@ services:
     container_name: gofins-ui
     image: gofins-ui:${GIT_HASH:-latest}
     ports:
-      - "127.0.0.1:3000:80"
+      - "127.0.0.1:7703:80"
     restart: unless-stopped
 
 volumes:
