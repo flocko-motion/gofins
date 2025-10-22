@@ -46,6 +46,17 @@ cp .env.example .env  # Set DB_PASSWORD
 ./deploy.sh           # Build & start Docker containers
 ```
 
+## Database
+Use gofins binary to interact with the database. In gofins/ directory:
+
+```bash
+# View schema
+go run . db schema
+
+# Execute SQL
+go run . db sql -q "SELECT COUNT(*) FROM symbols"
+```
+
 ## License
 
 WTFPL - Do What The Fuck You Want To
