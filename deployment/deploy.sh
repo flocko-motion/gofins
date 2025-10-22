@@ -47,13 +47,26 @@ echo "=== Restarting gofins service ==="
 sudo systemctl daemon-reload
 sudo systemctl restart gofins
 
+echo "=== Waiting for services to start ==="
+sleep 5
+
 echo "=== Deployment complete ==="
-sudo systemctl status gofins --no-pager
 echo ""
+echo "Systemd service status:"
+sudo systemctl status gofins --no-pager --lines=5
+echo ""
+echo "Docker containers:"
 docker compose ps
+echo ""
+echo "Container logs (last 10 lines):"
+echo "--- gofins-api ---"
+docker logs --tail 10 gofins-api
+echo ""
+echo "--- gofins-ui ---"
+docker logs --tail 10 gofins-ui
 echo ""
 echo "Services running on:"
 echo "  - PostgreSQL: localhost:7701"
 echo "  - API:        localhost:7702"
 echo "  - UI:         localhost:7703"
-echo "  - Public:     http://$(hostname -f)/gofins (via Apache)"
+echo "  - Public:     https://$(hostname -f)/gofins (via Apache)"
