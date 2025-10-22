@@ -1,7 +1,0 @@
-.venv/
-cache/
-backup/
-html/
-api-keys/*.key
-protocol.log
-__pycache__/
