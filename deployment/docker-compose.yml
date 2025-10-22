@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: gofins-db
+    environment:
+      POSTGRES_DB: gofins
+      POSTGRES_USER: gofins
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432"
+    restart: unless-stopped
+
+  api:
+    build:
+      context: ../gofins
+      dockerfile: Dockerfile
+    container_name: gofins-api
+    image: gofins-api:${GIT_HASH:-latest}
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: gofins
+      DB_USER: gofins
+      DB_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      - db
+    restart: unless-stopped
+
+  ui:
+    build:
+      context: ../gofins-ui
+      dockerfile: Dockerfile
+    container_name: gofins-ui
+    image: gofins-ui:${GIT_HASH:-latest}
+    ports:
+      - "127.0.0.1:3000:80"
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
