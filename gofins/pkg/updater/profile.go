@@ -16,8 +16,8 @@ import (
 
 const (
 	ProfileUpdateInterval = 30 * 24 * time.Hour
-	ProfileWorkers        = 8
-	ProfileBatchSize      = 200
+	ProfileWorkers        = 5
+	ProfileBatchSize      = 100
 )
 
 // currencyCodeMap maps non-standard currency codes from FMP to standard ISO codes
