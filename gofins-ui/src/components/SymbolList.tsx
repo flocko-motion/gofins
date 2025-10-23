@@ -1,23 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/outline';
-
-interface Symbol {
-    ticker: string;
-    exchange?: string;
-    name?: string;
-    type?: string;
-    sector?: string;
-    industry?: string;
-    country?: string;
-    inception?: string;
-    oldestPrice?: string;
-    isActivelyTrading?: boolean;
-    marketCap?: number;
-    isFavorite: boolean;
-    userRating?: number;
-    ath12m?: number;
-    currentPriceUsd?: number;
-}
+import { api, type Symbol } from '../services/api';
 
 interface SymbolListProps {
     endpoint: string;
@@ -78,8 +61,7 @@ export default function SymbolList({ endpoint, description, onOpenSymbol, defaul
     const toggleFavorite = async (ticker: string, e: React.MouseEvent) => {
         e.stopPropagation();
         try {
-            const response = await fetch(`/api/favorites/${ticker}`, { method: 'POST' });
-            const data = await response.json();
+            const data = await api.post<{ isFavorite: boolean }>(`favorites/${ticker}`);
             setSymbols(prev => prev.map(s => s.ticker === ticker ? { ...s, isFavorite: data.isFavorite } : s));
             if (symbolCache[endpoint]) {
                 symbolCache[endpoint] = symbolCache[endpoint].map(s => s.ticker === ticker ? { ...s, isFavorite: data.isFavorite } : s);

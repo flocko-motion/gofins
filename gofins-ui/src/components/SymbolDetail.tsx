@@ -1,29 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
-import type { SymbolProfile } from '../services/api';
+import { api, type SymbolProfile, type UserRating, type PriceData } from '../services/api';
 
 interface SymbolDetailProps {
     symbol: string;
     analysisId?: string; // If provided, use analysis-specific chart endpoints
     onClose?: () => void; // If provided, ESC will trigger close
-}
-
-interface UserRating {
-    id: number;
-    ticker: string;
-    rating: number;
-    notes?: string;
-    createdAt: string;
-}
-
-interface PriceData {
-    Date: string;
-    Open: number;
-    High: number;
-    Low: number;
-    Avg: number;
-    Close: number;
-    YoY: number | null;
-    SymbolTicker: string;
 }
 
 export default function SymbolDetail({ symbol, analysisId, onClose }: SymbolDetailProps) {
@@ -54,15 +35,10 @@ export default function SymbolDetail({ symbol, analysisId, onClose }: SymbolDeta
             setLoading(true);
             setError(null);
             try {
-                const url = analysisId
-                    ? `/api/analysis/${analysisId}/profile/${symbol}`
-                    : `/api/symbol/${symbol}`;
-
-                const response = await fetch(url);
-                if (!response.ok) {
-                    throw new Error('Failed to fetch symbol profile');
-                }
-                const profileData = await response.json();
+                const endpoint = analysisId
+                    ? `analysis/${analysisId}/profile/${symbol}`
+                    : `symbol/${symbol}`;
+                const profileData = await api.get<SymbolProfile>(endpoint);
                 setProfile(profileData);
                 setIsFavorite(profileData.isFavorite || false);
             } catch (err) {

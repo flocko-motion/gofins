@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { ExclamationTriangleIcon, TrashIcon } from '@heroicons/react/24/outline';
+import { api } from '../services/api';
 
 interface ErrorEntry {
     id: number;
@@ -17,9 +18,7 @@ export default function ErrorsView() {
 
     const fetchErrors = async () => {
         try {
-            const response = await fetch('/api/errors');
-            if (!response.ok) throw new Error('Failed to fetch errors');
-            const data = await response.json();
+            const data = await api.get<ErrorEntry[]>('errors');
             setErrors(data || []);
             setError(null);
         } catch (err) {
@@ -33,11 +32,7 @@ export default function ErrorsView() {
         if (!confirm('Clear all errors from the database?')) return;
         
         try {
-            const response = await fetch('/api/errors', {
-                method: 'DELETE'
-            });
-            if (!response.ok) throw new Error('Failed to clear errors');
-            const result = await response.json();
+            const result = await api.delete<{ deleted: number }>('errors');
             alert(`Cleared ${result.deleted} errors`);
             fetchErrors();
         } catch (err) {

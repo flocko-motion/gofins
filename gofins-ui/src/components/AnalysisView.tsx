@@ -1,6 +1,6 @@
 import { ChartBarIcon } from '@heroicons/react/24/outline';
 import { useState, useEffect } from 'react';
-import { analysisApi } from '../services/api';
+import { api } from '../services/api';
 import type { AnalysisPackage, AnalysisResult } from '../services/api';
 import SymbolDetail from './SymbolDetail';
 
@@ -124,7 +124,7 @@ export default function AnalysisView({ data }: AnalysisViewProps) {
         const fetchResults = async () => {
             try {
                 console.log('[AnalysisView] Fetching results for:', data.id);
-                const results = await analysisApi.getResults(data.id);
+                const results = await api.get<AnalysisResult[]>(`analysis/${data.id}/results`);
                 console.log('[AnalysisView] Received results:', results);
                 if (results.length > 0) {
                     console.log('[AnalysisView] First result structure:', results[0]);
@@ -142,7 +142,7 @@ export default function AnalysisView({ data }: AnalysisViewProps) {
         const fetchAnalysis = async () => {
             try {
                 console.log('[AnalysisView] Fetching analysis:', data.id);
-                const result = await analysisApi.get(data.id);
+                const result = await api.get<AnalysisPackage>(`analysis/${data.id}`);
                 console.log('[AnalysisView] Received analysis:', result);
                 setAnalysis(result);
                 setError('');

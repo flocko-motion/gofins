@@ -1,13 +1,6 @@
 import { useState, useEffect } from 'react';
 import { DocumentTextIcon } from '@heroicons/react/24/outline';
-
-interface Note {
-    id: number;
-    ticker: string;
-    rating: number;
-    notes: string;
-    createdAt: string;
-}
+import { api, type Note } from '../services/api';
 
 interface NotesViewProps {
     onOpenSymbol?: (symbol: string) => void;
@@ -21,9 +14,7 @@ export default function NotesView({ onOpenSymbol }: NotesViewProps) {
 
     const fetchNotes = async () => {
         try {
-            const response = await fetch('/api/notes');
-            if (!response.ok) throw new Error('Failed to fetch notes');
-            const data = await response.json();
+            const data = await api.get<Note[]>('notes');
             setNotes(data || []);
             setError(null);
         } catch (err) {
@@ -35,11 +26,8 @@ export default function NotesView({ onOpenSymbol }: NotesViewProps) {
 
     const fetchFavorites = async () => {
         try {
-            const response = await fetch('/api/favorites');
-            if (response.ok) {
-                const data = await response.json();
-                setFavorites(new Set(data || []));
-            }
+            const data = await api.get<string[]>('favorites');
+            setFavorites(new Set(data || []));
         } catch (err) {
             console.error('Failed to fetch favorites:', err);
         }
@@ -47,11 +35,8 @@ export default function NotesView({ onOpenSymbol }: NotesViewProps) {
 
     const toggleFavorite = async (ticker: string) => {
         try {
-            const response = await fetch(`/api/favorites/${ticker}`, {
-                method: 'POST'
-            });
-            if (response.ok) {
-                const data = await response.json();
+            const data = await api.post<{ isFavorite: boolean }>(`favorites/${ticker}`);
+            if (data) {
                 setFavorites(prev => {
                     const newSet = new Set(prev);
                     if (data.isFavorite) {

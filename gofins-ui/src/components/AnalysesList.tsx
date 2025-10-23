@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { analysisApi } from '../services/api';
+import { api } from '../services/api';
 import type { AnalysisPackage } from '../services/api';
 
 interface AnalysesListProps {
@@ -23,7 +23,7 @@ export default function AnalysesList({ onOpenAnalysis, onOpenCreate }: AnalysesL
         try {
             isFetching = true;
             setLoading(true);
-            const data = await analysisApi.list();
+            const data = await api.get<AnalysisPackage[]>('analyses');
             setAnalyses(data || []); // Handle null response
             setError(null);
         } catch (err) {
@@ -44,7 +44,7 @@ export default function AnalysesList({ onOpenAnalysis, onOpenCreate }: AnalysesL
         }
 
         try {
-            await analysisApi.delete(id);
+            await api.delete(`analysis/${id}`);
             // Refresh the list after deletion
             await fetchAnalyses();
         } catch (err) {
@@ -63,7 +63,7 @@ export default function AnalysesList({ onOpenAnalysis, onOpenCreate }: AnalysesL
         }
 
         try {
-            await analysisApi.update(renamingId, newName.trim());
+            await api.put(`analysis/${renamingId}`, { name: newName.trim() });
             setRenamingId(null);
             setNewName('');
             // Refresh the list after rename

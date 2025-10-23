@@ -13,6 +13,7 @@ import {
     UserIcon
 } from '@heroicons/react/24/outline';
 import TabContent from './TabContent';
+import { api } from '../services/api';
 
 interface Tab {
     id: string;
@@ -44,8 +45,7 @@ export default function Layout() {
 
     // Fetch current user on mount
     useEffect(() => {
-        fetch('/api/user')
-            .then(res => res.json())
+        api.get<User>('user')
             .then(data => setUser(data))
             .catch(err => console.error('Failed to fetch user:', err));
     }, []);

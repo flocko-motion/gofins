@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { analysisApi } from '../services/api';
+import { api } from '../services/api';
 import type { CreateAnalysisRequest } from '../services/api';
 
 interface CreateAnalysisProps {
@@ -44,7 +44,7 @@ export default function CreateAnalysis({ onAnalysisCreated, onCancel }: CreateAn
                 inception_max: inceptionMax || undefined,
             };
 
-            const result = await analysisApi.create(request);
+            const result = await api.post<{ package_id: string; status: string }>('analyses', request);
             console.log('Analysis created:', result);
 
             // Open the new analysis tab first
