@@ -174,5 +174,17 @@ export interface CreateAnalysisRequest {
     inception_max?: string;
 }
 
-// No specialized API objects - just use api.get/post/put/delete directly
+// Favorites API helpers
+export const favorites = {
+    list: () => api.get<string[]>('favorites'),
+    toggle: (ticker: string) => api.post<{ isFavorite: boolean }>(`favorites/${ticker}`),
+};
+
+// Ratings API helpers
+export const ratings = {
+    getHistory: (ticker: string) => api.get<UserRating[]>(`ratings/${ticker}/history`),
+    add: (ticker: string, rating: number, notes?: string) => 
+        api.post(`ratings/${ticker}`, { rating, notes: notes || undefined }),
+    delete: (ratingId: number) => api.delete(`ratings/${ratingId}`),
+};
 

@@ -1,6 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
-import { api, imageUrl, type SymbolProfile, type UserRating, type PriceData } from '../services/api';
+import { api, imageUrl, favorites, ratings, type SymbolProfile, type UserRating } from '../services/api';
 import PriceTable from './PriceTable';
+import SymbolProfileView from './SymbolProfile';
+import RatingSection from './RatingSection';
+import ChartSection, { type ChartSectionHandle } from './ChartSection';
+import { formatPrice } from '../utils/format';
 
 interface SymbolDetailProps {
     symbol: string;
@@ -16,18 +20,12 @@ export default function SymbolDetail({ symbol, analysisId, onClose }: SymbolDeta
     const [notes, setNotes] = useState<string>('');
     const [ratingHistory, setRatingHistory] = useState<UserRating[]>([]);
     const [submitting, setSubmitting] = useState(false);
-    const [monthlyPrices, setMonthlyPrices] = useState<PriceData[]>([]);
-    const [pricesLoading, setPricesLoading] = useState(false);
     const [pricesExpanded, setPricesExpanded] = useState(false);
-    const [pricesFetched, setPricesFetched] = useState(false);
-    const [weeklyPrices, setWeeklyPrices] = useState<PriceData[]>([]);
-    const [weeklyLoading, setWeeklyLoading] = useState(false);
     const [weeklyExpanded, setWeeklyExpanded] = useState(false);
-    const [weeklyFetched, setWeeklyFetched] = useState(false);
-    const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
     const [isFavorite, setIsFavorite] = useState(false);
     const ratingSectionRef = useRef<HTMLDivElement>(null);
-    const chartSectionRef = useRef<HTMLDivElement>(null);
+    const chartSectionRef = useRef<ChartSectionHandle>(null);
+    const chartScrollRef = useRef<HTMLDivElement>(null);
     const pricesSectionRef = useRef<HTMLDivElement>(null);
     const weeklySectionRef = useRef<HTMLDivElement>(null);
 
@@ -55,7 +53,7 @@ export default function SymbolDetail({ symbol, analysisId, onClose }: SymbolDeta
     useEffect(() => {
         const fetchRatingHistory = async () => {
             try {
-                const data = await api.get<UserRating[]>(`ratings/${symbol}/history`);
+                const data = await ratings.getHistory(symbol);
                 setRatingHistory(data || []);
             } catch (err) {
                 console.error('Failed to fetch rating history:', err);
@@ -66,85 +64,29 @@ export default function SymbolDetail({ symbol, analysisId, onClose }: SymbolDeta
 
     const toggleFavorite = async () => {
         try {
-            const data = await api.post<{ isFavorite: boolean }>(`favorites/${symbol}`);
+            const data = await favorites.toggle(symbol);
             setIsFavorite(data.isFavorite);
         } catch (err) {
             console.error('Failed to toggle favorite:', err);
         }
     };
 
-    const fetchMonthlyPrices = async () => {
-        if (pricesFetched) return; // Already fetched
-        setPricesLoading(true);
-        try {
-            const data = await api.get<{ prices: PriceData[] }>(`prices/monthly/${symbol}`);
-            setMonthlyPrices(data.prices || []);
-            setPricesFetched(true);
-        } catch (err) {
-            console.error('Failed to fetch monthly prices:', err);
-        } finally {
-            setPricesLoading(false);
-        }
-    };
+    const togglePrices = () => setPricesExpanded(!pricesExpanded);
+    const toggleWeekly = () => setWeeklyExpanded(!weeklyExpanded);
 
-    const fetchWeeklyPrices = async () => {
-        if (weeklyFetched) return;
-        setWeeklyLoading(true);
-        try {
-            const data = await api.get<{ prices: PriceData[] }>(`prices/weekly/${symbol}`);
-            setWeeklyPrices(data.prices || []);
-            setWeeklyFetched(true);
-        } catch (err) {
-            console.error('Failed to fetch weekly prices:', err);
-        } finally {
-            setWeeklyLoading(false);
-        }
-    };
-
-    const togglePrices = () => {
-        const newExpanded = !pricesExpanded;
-        setPricesExpanded(newExpanded);
-        if (newExpanded) {
-            if (!pricesFetched) {
-                fetchMonthlyPrices();
-            }
-            // Scroll to the section after a brief delay to allow expansion
-            setTimeout(() => {
-                pricesSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }, 100);
-        }
-    };
-
-    const toggleWeekly = () => {
-        const newExpanded = !weeklyExpanded;
-        setWeeklyExpanded(newExpanded);
-        if (newExpanded) {
-            if (!weeklyFetched) {
-                fetchWeeklyPrices();
-            }
-            setTimeout(() => {
-                weeklySectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }, 100);
-        }
-    };
-
-    // Reset prices state when symbol changes
+    // Reset expanded state when symbol changes
     useEffect(() => {
         setPricesExpanded(false);
-        setPricesFetched(false);
-        setMonthlyPrices([]);
         setWeeklyExpanded(false);
-        setWeeklyFetched(false);
-        setWeeklyPrices([]);
     }, [symbol]);
 
     const handleDeleteRating = async (ratingId: number) => {
         if (!confirm('Delete this rating?')) return;
 
         try {
-            await api.delete(`ratings/${ratingId}`);
+            await ratings.delete(ratingId);
             // Refresh rating history
-            const data = await api.get<UserRating[]>(`ratings/${symbol}/history`);
+            const data = await ratings.getHistory(symbol);
             setRatingHistory(data || []);
             // Clear symbol list cache to force refresh when user returns to stocks tab
             sessionStorage.setItem('symbolCacheInvalidated', Date.now().toString());
@@ -160,9 +102,9 @@ export default function SymbolDetail({ symbol, analysisId, onClose }: SymbolDeta
         }
         setSubmitting(true);
         try {
-            await api.post(`ratings/${symbol}`, { rating, notes: notes || undefined });
+            await ratings.add(symbol, rating, notes || undefined);
             // Refresh rating history
-            const data = await api.get<UserRating[]>(`ratings/${symbol}/history`);
+            const data = await ratings.getHistory(symbol);
             setRatingHistory(data || []);
             // Reset form and blur textarea
             setRating(null);
@@ -178,60 +120,7 @@ export default function SymbolDetail({ symbol, analysisId, onClose }: SymbolDeta
         }
     };
 
-    const getRatingColor = (rating: number): string => {
-        if (rating === 0) return 'text-gray-500';
-        if (rating > 0) {
-            const intensity = Math.min(rating / 5, 1);
-            if (intensity > 0.6) return 'text-green-700 font-bold';
-            if (intensity > 0.3) return 'text-green-600';
-            return 'text-green-500';
-        } else {
-            const intensity = Math.min(Math.abs(rating) / 5, 1);
-            if (intensity > 0.6) return 'text-red-700 font-bold';
-            if (intensity > 0.3) return 'text-red-600';
-            return 'text-red-500';
-        }
-    };
 
-    const formatMarketCap = (marketCap: number): string => {
-        const absValue = Math.abs(marketCap);
-        if (absValue >= 1e12) {
-            return `$${(marketCap / 1e12).toFixed(1)}T`;
-        } else if (absValue >= 1e9) {
-            return `$${(marketCap / 1e9).toFixed(1)}B`;
-        } else if (absValue >= 1e6) {
-            return `$${(marketCap / 1e6).toFixed(1)}M`;
-        } else if (absValue >= 1e3) {
-            return `$${(marketCap / 1e3).toFixed(1)}K`;
-        }
-        return `$${marketCap}`;
-    };
-
-    const formatPrice = (price: number): string => {
-        const absValue = Math.abs(price);
-        if (absValue === 0) return '0.00';
-
-        // Use log10 to determine decimal places
-        // For prices >= 100: 2 decimals
-        // For prices >= 10: 3 decimals
-        // For prices >= 1: 4 decimals
-        // For prices < 1: 5+ decimals
-        const log = Math.log10(absValue);
-        let decimals: number;
-
-        // if (log >= 2) {
-        //     decimals = 0; // >= 100
-        // } else if (log >= 1) {
-        //     decimals = 1; // >= 10
-        // } else if (log >= 0) {
-        //     decimals = 2; // >= 1
-        // } else {
-        //     // For very small numbers, add more decimals
-        //     decimals = Math.ceil(Math.abs(log));
-        // }
-        decimals = Math.min(10, Math.max(0, 3 - Math.ceil(Math.abs(log))));
-        return price.toFixed(decimals);
-    };
 
     useEffect(() => {
         const handleKeyDown = (event: KeyboardEvent) => {
@@ -261,33 +150,31 @@ export default function SymbolDetail({ symbol, analysisId, onClose }: SymbolDeta
 
             if (event.key.toLowerCase() === 'c') {
                 event.preventDefault();
-                if (fullscreenImage === chartUrl) {
-                    setFullscreenImage(null);
-                } else {
-                    setFullscreenImage(chartUrl);
-                }
+                chartSectionRef.current?.toggleChart();
                 return;
             }
 
             if (event.key.toLowerCase() === 'h') {
                 event.preventDefault();
-                if (fullscreenImage === histogramUrl) {
-                    setFullscreenImage(null);
-                } else {
-                    setFullscreenImage(histogramUrl);
-                }
+                chartSectionRef.current?.toggleHistogram();
                 return;
             }
 
             if (event.key.toLowerCase() === 'm') {
                 event.preventDefault();
-                togglePrices();
+                pricesSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                if (!pricesExpanded) {
+                    togglePrices();
+                }
                 return;
             }
 
             if (event.key.toLowerCase() === 'w') {
                 event.preventDefault();
-                toggleWeekly();
+                weeklySectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                if (!weeklyExpanded) {
+                    toggleWeekly();
+                }
                 return;
             }
 
@@ -304,20 +191,18 @@ export default function SymbolDetail({ symbol, analysisId, onClose }: SymbolDeta
             }
 
             // Number keys for rating (1-5, Shift+1-5 for negative, 0 for neutral)
-            const num = parseInt(event.key);
-            if (!isNaN(num) && num >= 0 && num <= 5) {
-                const newRating = event.shiftKey && num > 0 ? -num : num;
-                setRating(newRating);
-                // Auto-focus the notes textarea
+            // Also support special characters for negative ratings: ! " § $ %
+            const negativeRatingMap: Record<string, number> = {
+                '!': -1, '"': -2, '§': -3, '$': -4, '%': -5
+            };
+            
+            if (event.key in negativeRatingMap) {
+                setRating(negativeRatingMap[event.key]);
                 setTimeout(() => {
                     const textarea = document.querySelector('textarea[placeholder*="Optional notes"]') as HTMLTextAreaElement;
                     if (textarea) textarea.focus();
                 }, 0);
-            } else if (event.key.toLowerCase() === 't') {
-                const tradingViewUrl = `https://www.tradingview.com/chart/?symbol=${symbol}`;
-                window.open(tradingViewUrl, '_blank', 'noopener,noreferrer');
             } else {
-                // Number keys for rating (1-5, Shift+1-5 for negative, 0 for neutral)
                 const num = parseInt(event.key);
                 if (!isNaN(num) && num >= 0 && num <= 5) {
                     const newRating = event.shiftKey && num > 0 ? -num : num;
@@ -328,6 +213,11 @@ export default function SymbolDetail({ symbol, analysisId, onClose }: SymbolDeta
                         if (textarea) textarea.focus();
                     }, 0);
                 }
+            }
+            
+            if (event.key.toLowerCase() === 't') {
+                const tradingViewUrl = `https://www.tradingview.com/chart/?symbol=${symbol}`;
+                window.open(tradingViewUrl, '_blank', 'noopener,noreferrer');
             }
         };
 
@@ -358,7 +248,10 @@ export default function SymbolDetail({ symbol, analysisId, onClose }: SymbolDeta
                         </span>
                         <h2 className="text-2xl font-semibold">{symbol}</h2>
                         {ratingHistory.length > 0 && (
-                            <span className={`font-mono text-2xl font-bold ${getRatingColor(ratingHistory[0].rating)}`}>
+                            <span className={`font-mono text-2xl font-bold ${
+                                ratingHistory[0].rating === 0 ? 'text-gray-500' :
+                                ratingHistory[0].rating > 0 ? 'text-green-600' : 'text-red-600'
+                            }`}>
                                 {ratingHistory[0].rating > 0 ? '+' : ''}{ratingHistory[0].rating}
                             </span>
                         )}
@@ -369,22 +262,10 @@ export default function SymbolDetail({ symbol, analysisId, onClose }: SymbolDeta
                 </div>
                 <div className="flex items-center gap-2">
                     <button
-                        onClick={() => {
-                            chartSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                            setTimeout(() => setFullscreenImage(chartUrl), 300);
-                        }}
+                        onClick={() => chartScrollRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
                         className="px-2 py-1 text-xs text-gray-400 hover:text-gray-600 border border-gray-300 rounded"
                     >
-                        [C]hart
-                    </button>
-                    <button
-                        onClick={() => {
-                            chartSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                            setTimeout(() => setFullscreenImage(histogramUrl), 300);
-                        }}
-                        className="px-2 py-1 text-xs text-gray-400 hover:text-gray-600 border border-gray-300 rounded"
-                    >
-                        [H]istogram
+                        [C]hart / [H]istogram
                     </button>
                     <button
                         onClick={togglePrices}
@@ -424,53 +305,19 @@ export default function SymbolDetail({ symbol, analysisId, onClose }: SymbolDeta
             </div>
 
             {/* Charts */}
-            <div ref={chartSectionRef} className="mb-8">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    <div>
-                        <img
-                            src={chartUrl}
-                            alt={`Chart for ${symbol}`}
-                            className="w-full h-[50vh] object-contain border border-gray-200 rounded cursor-pointer hover:opacity-90"
-                            onClick={() => setFullscreenImage(chartUrl)}
-                        />
-                    </div>
-                    <div>
-                        <img
-                            src={histogramUrl}
-                            alt={`Histogram for ${symbol}`}
-                            className="w-full h-[50vh] object-contain border border-gray-200 rounded cursor-pointer hover:opacity-90"
-                            onClick={() => setFullscreenImage(histogramUrl)}
-                        />
-                    </div>
-                </div>
-            </div>
-
-            {/* Fullscreen Image Modal */}
-            {fullscreenImage && (
-                <div
-                    className="fixed inset-0 bg-black z-50 flex items-center justify-center"
-                    onClick={() => setFullscreenImage(null)}
-                >
-                    <img
-                        src={fullscreenImage}
-                        alt="Fullscreen view"
-                        className="w-full h-full object-contain"
-                        onClick={(e) => e.stopPropagation()}
-                    />
-                    <button
-                        className="absolute top-2 right-2 text-white text-3xl font-bold hover:text-gray-400 px-3 py-1"
-                        onClick={() => setFullscreenImage(null)}
-                    >
-                        ×
-                    </button>
-                </div>
-            )}
+            <ChartSection
+                ref={chartSectionRef}
+                chartUrl={chartUrl}
+                histogramUrl={histogramUrl}
+                symbol={symbol}
+                sectionRef={chartScrollRef}
+            />
 
             {/* Monthly Prices Table */}
             <PriceTable
                 title="Monthly Prices"
-                prices={monthlyPrices}
-                loading={pricesLoading}
+                symbol={symbol}
+                interval="monthly"
                 expanded={pricesExpanded}
                 onToggle={togglePrices}
                 dateFormat="monthly"
@@ -480,8 +327,8 @@ export default function SymbolDetail({ symbol, analysisId, onClose }: SymbolDeta
             {/* Weekly Prices Table */}
             <PriceTable
                 title="Weekly Prices"
-                prices={weeklyPrices}
-                loading={weeklyLoading}
+                symbol={symbol}
+                interval="weekly"
                 expanded={weeklyExpanded}
                 onToggle={toggleWeekly}
                 dateFormat="weekly"
@@ -489,158 +336,23 @@ export default function SymbolDetail({ symbol, analysisId, onClose }: SymbolDeta
             />
 
             {/* Profile Information */}
-            {loading ? (
-                <div className="text-center py-8">
-                    <p className="text-gray-500">Loading profile...</p>
-                </div>
-            ) : error ? (
-                <div className="text-center py-8">
-                    <p className="text-red-600">Error: {error}</p>
-                </div>
-            ) : profile ? (
-                <div className="p-6 bg-gray-50 rounded-lg">
-                    <h3 className="text-lg font-semibold mb-4">Company Information</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
-                        <div className="md:col-span-2 lg:col-span-3">
-                            <span className="font-medium text-gray-600">Sector:</span>
-                            <span className="ml-2">{profile.sector || 'N/A'}</span>
-                            <span className="mx-3 text-gray-400">|</span>
-                            <span className="font-medium text-gray-600">Industry:</span>
-                            <span className="ml-2">{profile.industry || 'N/A'}</span>
-                        </div>
-                        <div>
-                            <span className="font-medium text-gray-600">Country:</span>
-                            <span className="ml-2">{profile.country || 'N/A'}</span>
-                        </div>
-                        <div>
-                            <span className="font-medium text-gray-600">Exchange:</span>
-                            <span className="ml-2">{profile.exchange || 'N/A'}</span>
-                        </div>
-                        <div>
-                            <span className="font-medium text-gray-600">Currency:</span>
-                            <span className="ml-2">{profile.currency || 'N/A'}</span>
-                        </div>
-                        <div>
-                            <span className="font-medium text-gray-600">Market Cap:</span>
-                            <span className="ml-2">{profile.marketCap ? formatMarketCap(profile.marketCap) : 'N/A'}</span>
-                        </div>
-                        <div>
-                            <span className="font-medium text-gray-600">Founded:</span>
-                            <span className="ml-2">{profile.inception ? new Date(profile.inception).getFullYear() : 'N/A'}</span>
-                        </div>
-                        <div>
-                            <span className="font-medium text-gray-600">History:</span>
-                            <span className="ml-2">{profile.oldestPrice ? new Date(profile.oldestPrice).getFullYear() : 'N/A'}</span>
-                        </div>
-                        <div className="md:col-span-2 lg:col-span-3">
-                            <span className="font-medium text-gray-600">Price:</span>
-                            <span className="ml-2 font-mono">{profile.currentPriceUsd != null ? `$${profile.currentPriceUsd.toFixed(2)}` : 'N/A'}</span>
-                            <span className="mx-3 text-gray-400">|</span>
-                            <span className="font-medium text-gray-600">ATH(12):</span>
-                            <span className="ml-2 font-mono">{profile.ath12m != null ? `$${profile.ath12m.toFixed(2)}` : 'N/A'}</span>
-                            <span className="mx-3 text-gray-400">|</span>
-                            <span className="font-medium text-gray-600">ΔATH:</span>
-                            <span className="ml-2 font-mono">
-                                {profile.currentPriceUsd != null && profile.ath12m != null && profile.ath12m > 0 ? (
-                                    <span className={((profile.currentPriceUsd / profile.ath12m - 1) * 100) >= -10 ? 'text-green-600' : ((profile.currentPriceUsd / profile.ath12m - 1) * 100) >= -30 ? 'text-yellow-600' : 'text-red-600'}>
-                                        {((profile.currentPriceUsd / profile.ath12m - 1) * 100).toFixed(1)}%
-                                    </span>
-                                ) : 'N/A'}
-                            </span>
-                        </div>
-                        <div className="md:col-span-2 lg:col-span-3">
-                            <span className="font-medium text-gray-600">Website:</span>
-                            {profile.website ? (
-                                <a href={profile.website} target="_blank" rel="noopener noreferrer" className="ml-2 text-blue-600 hover:underline">
-                                    {String(profile.website).replace('https://', '').replace('http://', '').replace('www.', '')}
-                                </a>
-                            ) : (
-                                <span className="ml-2">N/A</span>
-                            )}
-                        </div>
-                    </div>
-                    {profile.description && (
-                        <div className="mt-4">
-                            <span className="font-medium text-gray-600">Description:</span>
-                            <p className="mt-2 text-gray-700">{profile.description}</p>
-                        </div>
-                    )}
+            <SymbolProfileView profile={profile} loading={loading} error={error} />
 
-                    {/* Rating Form */}
-                    <div ref={ratingSectionRef} className="mt-6 pt-6 border-t border-gray-300">
-                        <div className="flex items-baseline gap-3 mb-3">
-                            <h4 className="text-md font-semibold">Rate This Stock</h4>
-                            <span className="text-xs text-gray-500">(Keys: R to scroll here, 1-5, Shift+1-5 for negative, 0 for neutral, Enter to submit)</span>
-                        </div>
-                        <div className="flex flex-col gap-3">
-                            <div className="flex items-center gap-4">
-                                <label className="font-medium text-gray-600 w-20">Rating:</label>
-                                <select
-                                    value={rating === null ? '' : rating}
-                                    onChange={(e) => setRating(e.target.value === '' ? null : parseInt(e.target.value))}
-                                    className="px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
-                                >
-                                    <option value="">Select rating...</option>
-                                    {[-5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5].map(r => (
-                                        <option key={r} value={r}>{r > 0 ? `+${r}` : r}</option>
-                                    ))}
-                                </select>
-                                <span className="text-sm text-gray-500">(-5 = avoid, 0 = neutral, +5 = strong buy)</span>
-                            </div>
-                            <div className="flex items-start gap-4">
-                                <label className="font-medium text-gray-600 w-20 pt-2">Notes:</label>
-                                <textarea
-                                    value={notes}
-                                    onChange={(e) => setNotes(e.target.value)}
-                                    placeholder="Optional notes about your rating..."
-                                    className="flex-1 px-3 py-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
-                                    rows={3}
-                                />
-                            </div>
-                            <div className="flex justify-end">
-                                <button
-                                    onClick={handleSubmitRating}
-                                    disabled={submitting || rating === null}
-                                    className="px-6 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
-                                >
-                                    {submitting ? 'Submitting...' : 'Submit Rating'}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Rating History */}
-                    {ratingHistory.length > 0 && (
-                        <div className="mt-6 pt-6 border-t border-gray-300">
-                            <h4 className="text-md font-semibold mb-3">Rating History</h4>
-                            <div className="space-y-3">
-                                {ratingHistory.map((r) => (
-                                    <div key={r.id} className="p-3 bg-white border border-gray-200 rounded relative">
-                                        <button
-                                            onClick={() => handleDeleteRating(r.id)}
-                                            className="absolute top-2 right-2 text-gray-400 hover:text-red-600 text-sm font-bold"
-                                            title="Delete rating"
-                                        >
-                                            ×
-                                        </button>
-                                        <div className="flex items-center gap-3 mb-1">
-                                            <span className={`font-mono text-lg font-bold ${getRatingColor(r.rating)}`}>
-                                                {r.rating > 0 ? '+' : ''}{r.rating}
-                                            </span>
-                                            <span className="text-xs text-gray-500">
-                                                {new Date(r.createdAt).toLocaleString()}
-                                            </span>
-                                        </div>
-                                        {r.notes && (
-                                            <p className="text-sm text-gray-700 mt-2">{r.notes}</p>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-                </div>
-            ) : null}
+            {/* Rating Section */}
+            {profile && (
+                <RatingSection
+                    symbol={symbol}
+                    rating={rating}
+                    setRating={setRating}
+                    notes={notes}
+                    setNotes={setNotes}
+                    submitting={submitting}
+                    ratingHistory={ratingHistory}
+                    onSubmit={handleSubmitRating}
+                    onDelete={handleDeleteRating}
+                    sectionRef={ratingSectionRef}
+                />
+            )}
         </>
     );
 }

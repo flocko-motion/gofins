@@ -1,36 +1,55 @@
-import { type PriceData } from '../services/api';
+import { useState, useEffect } from 'react';
+import { api, type PriceData } from '../services/api';
+import { formatPrice, formatDate } from '../utils/format';
 
 interface PriceTableProps {
     title: string;
-    prices: PriceData[];
-    loading: boolean;
+    symbol: string;
+    interval: 'monthly' | 'weekly';
     expanded: boolean;
     onToggle: () => void;
     dateFormat?: 'monthly' | 'weekly';
     sectionRef?: React.RefObject<HTMLDivElement | null>;
 }
 
-const formatPrice = (price: number | undefined): string => {
-    if (price === undefined || price === null) return 'N/A';
-    return price.toFixed(2);
-};
-
 export default function PriceTable({
     title,
-    prices,
-    loading,
+    symbol,
+    interval,
     expanded,
     onToggle,
     dateFormat = 'monthly',
     sectionRef
 }: PriceTableProps) {
-    const formatDate = (dateStr: string) => {
-        const date = new Date(dateStr);
-        if (dateFormat === 'monthly') {
-            return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
+    const [prices, setPrices] = useState<PriceData[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [fetched, setFetched] = useState(false);
+
+    useEffect(() => {
+        const fetchPrices = async () => {
+            if (fetched || !expanded) return;
+            setLoading(true);
+            try {
+                const data = await api.get<{ prices: PriceData[] }>(`prices/${interval}/${symbol}`);
+                setPrices(data.prices || []);
+                setFetched(true);
+            } catch (err) {
+                console.error(`Failed to fetch ${interval} prices:`, err);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        if (expanded) {
+            fetchPrices();
         }
-        return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-    };
+    }, [expanded, fetched, interval, symbol]);
+
+    // Reset when symbol changes
+    useEffect(() => {
+        setPrices([]);
+        setFetched(false);
+    }, [symbol]);
 
     return (
         <div ref={sectionRef} className="mb-8">
@@ -65,7 +84,7 @@ export default function PriceTable({
                                     {prices.map((price, idx) => (
                                         <tr key={idx} className="hover:bg-gray-50">
                                             <td className="px-4 py-2 border-b">
-                                                {formatDate(price.Date)}
+                                                {formatDate(price.Date, dateFormat === 'monthly' ? 'short' : 'long')}
                                             </td>
                                             <td className="px-4 py-2 text-right border-b">{formatPrice(price.Open)}</td>
                                             <td className="px-4 py-2 text-right border-b">{formatPrice(price.High)}</td>

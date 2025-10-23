@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { DocumentTextIcon } from '@heroicons/react/24/outline';
-import { api, type Note } from '../services/api';
+import { api, favorites as favoritesApi, type Note } from '../services/api';
 
 interface NotesViewProps {
     onOpenSymbol?: (symbol: string) => void;
@@ -26,7 +26,7 @@ export default function NotesView({ onOpenSymbol }: NotesViewProps) {
 
     const fetchFavorites = async () => {
         try {
-            const data = await api.get<string[]>('favorites');
+            const data = await favoritesApi.list();
             setFavorites(new Set(data || []));
         } catch (err) {
             console.error('Failed to fetch favorites:', err);
@@ -35,7 +35,7 @@ export default function NotesView({ onOpenSymbol }: NotesViewProps) {
 
     const toggleFavorite = async (ticker: string) => {
         try {
-            const data = await api.post<{ isFavorite: boolean }>(`favorites/${ticker}`);
+            const data = await favoritesApi.toggle(ticker);
             if (data) {
                 setFavorites(prev => {
                     const newSet = new Set(prev);

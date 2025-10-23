@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/outline';
-import { api, type Symbol } from '../services/api';
+import { api, favorites, type Symbol } from '../services/api';
 
 interface SymbolListProps {
     endpoint: string;
@@ -61,7 +61,7 @@ export default function SymbolList({ endpoint, description, onOpenSymbol, defaul
     const toggleFavorite = async (ticker: string, e: React.MouseEvent) => {
         e.stopPropagation();
         try {
-            const data = await api.post<{ isFavorite: boolean }>(`favorites/${ticker}`);
+            const data = await favorites.toggle(ticker);
             setSymbols(prev => prev.map(s => s.ticker === ticker ? { ...s, isFavorite: data.isFavorite } : s));
             if (symbolCache[endpoint]) {
                 symbolCache[endpoint] = symbolCache[endpoint].map(s => s.ticker === ticker ? { ...s, isFavorite: data.isFavorite } : s);
