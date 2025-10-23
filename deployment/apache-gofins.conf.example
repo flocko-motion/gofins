@@ -40,7 +40,7 @@
         Require valid-user
         
         # Pass authenticated username to backend
-        RequestHeader set X-Remote-User %{REMOTE_USER}e
+        RequestHeader set X-Remote-User %{REMOTE_USER}s
     </Location>
 
     # Proxy API requests to Go backend (port 7702)

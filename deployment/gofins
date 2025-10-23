@@ -28,4 +28,4 @@ fi
 
 # Execute the command inside the running container
 # Pass all arguments to the gofins binary
-docker exec -it gofins-api /app/gofins "$@"
+docker exec -it gofins-api /root/gofins "$@"
