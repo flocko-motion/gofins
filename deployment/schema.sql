@@ -21,7 +21,7 @@ SET default_tablespace = '';
 SET default_table_access_method = heap;
 
 --
--- Name: analysis_packages; Type: TABLE; Schema: public; Owner: fins
+-- Name: analysis_packages; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.analysis_packages (
@@ -42,10 +42,8 @@ CREATE TABLE public.analysis_packages (
 );
 
 
-ALTER TABLE public.analysis_packages OWNER TO fins;
-
 --
--- Name: analysis_results; Type: TABLE; Schema: public; Owner: fins
+-- Name: analysis_results; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.analysis_results (
@@ -62,10 +60,8 @@ CREATE TABLE public.analysis_results (
 );
 
 
-ALTER TABLE public.analysis_results OWNER TO fins;
-
 --
--- Name: batch_update_log; Type: TABLE; Schema: public; Owner: fins
+-- Name: batch_update_log; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.batch_update_log (
@@ -80,10 +76,8 @@ CREATE TABLE public.batch_update_log (
 );
 
 
-ALTER TABLE public.batch_update_log OWNER TO fins;
-
 --
--- Name: batch_update_log_id_seq; Type: SEQUENCE; Schema: public; Owner: fins
+-- Name: batch_update_log_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.batch_update_log_id_seq
@@ -95,17 +89,15 @@ CREATE SEQUENCE public.batch_update_log_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.batch_update_log_id_seq OWNER TO fins;
-
 --
--- Name: batch_update_log_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: fins
+-- Name: batch_update_log_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.batch_update_log_id_seq OWNED BY public.batch_update_log.id;
 
 
 --
--- Name: errors; Type: TABLE; Schema: public; Owner: fins
+-- Name: errors; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.errors (
@@ -118,10 +110,8 @@ CREATE TABLE public.errors (
 );
 
 
-ALTER TABLE public.errors OWNER TO fins;
-
 --
--- Name: errors_id_seq; Type: SEQUENCE; Schema: public; Owner: fins
+-- Name: errors_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.errors_id_seq
@@ -133,17 +123,15 @@ CREATE SEQUENCE public.errors_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.errors_id_seq OWNER TO fins;
-
 --
--- Name: errors_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: fins
+-- Name: errors_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.errors_id_seq OWNED BY public.errors.id;
 
 
 --
--- Name: monthly_prices; Type: TABLE; Schema: public; Owner: fins
+-- Name: monthly_prices; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.monthly_prices (
@@ -158,10 +146,8 @@ CREATE TABLE public.monthly_prices (
 );
 
 
-ALTER TABLE public.monthly_prices OWNER TO fins;
-
 --
--- Name: notes; Type: TABLE; Schema: public; Owner: fins
+-- Name: notes; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.notes (
@@ -174,10 +160,8 @@ CREATE TABLE public.notes (
 );
 
 
-ALTER TABLE public.notes OWNER TO fins;
-
 --
--- Name: symbols; Type: TABLE; Schema: public; Owner: fins
+-- Name: symbols; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.symbols (
@@ -210,10 +194,8 @@ CREATE TABLE public.symbols (
 );
 
 
-ALTER TABLE public.symbols OWNER TO fins;
-
 --
--- Name: user_favorites; Type: TABLE; Schema: public; Owner: fins
+-- Name: user_favorites; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.user_favorites (
@@ -223,10 +205,8 @@ CREATE TABLE public.user_favorites (
 );
 
 
-ALTER TABLE public.user_favorites OWNER TO fins;
-
 --
--- Name: user_ratings; Type: TABLE; Schema: public; Owner: fins
+-- Name: user_ratings; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.user_ratings (
@@ -240,10 +220,8 @@ CREATE TABLE public.user_ratings (
 );
 
 
-ALTER TABLE public.user_ratings OWNER TO fins;
-
 --
--- Name: user_ratings_id_seq; Type: SEQUENCE; Schema: public; Owner: fins
+-- Name: user_ratings_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.user_ratings_id_seq
@@ -255,17 +233,15 @@ CREATE SEQUENCE public.user_ratings_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.user_ratings_id_seq OWNER TO fins;
-
 --
--- Name: user_ratings_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: fins
+-- Name: user_ratings_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.user_ratings_id_seq OWNED BY public.user_ratings.id;
 
 
 --
--- Name: users; Type: TABLE; Schema: public; Owner: fins
+-- Name: users; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.users (
@@ -275,10 +251,8 @@ CREATE TABLE public.users (
 );
 
 
-ALTER TABLE public.users OWNER TO fins;
-
 --
--- Name: weekly_prices; Type: TABLE; Schema: public; Owner: fins
+-- Name: weekly_prices; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.weekly_prices (
@@ -293,31 +267,29 @@ CREATE TABLE public.weekly_prices (
 );
 
 
-ALTER TABLE public.weekly_prices OWNER TO fins;
-
 --
--- Name: batch_update_log id; Type: DEFAULT; Schema: public; Owner: fins
+-- Name: batch_update_log id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.batch_update_log ALTER COLUMN id SET DEFAULT nextval('public.batch_update_log_id_seq'::regclass);
 
 
 --
--- Name: errors id; Type: DEFAULT; Schema: public; Owner: fins
+-- Name: errors id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.errors ALTER COLUMN id SET DEFAULT nextval('public.errors_id_seq'::regclass);
 
 
 --
--- Name: user_ratings id; Type: DEFAULT; Schema: public; Owner: fins
+-- Name: user_ratings id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.user_ratings ALTER COLUMN id SET DEFAULT nextval('public.user_ratings_id_seq'::regclass);
 
 
 --
--- Name: analysis_packages analysis_packages_pkey; Type: CONSTRAINT; Schema: public; Owner: fins
+-- Name: analysis_packages analysis_packages_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.analysis_packages
@@ -325,7 +297,7 @@ ALTER TABLE ONLY public.analysis_packages
 
 
 --
--- Name: analysis_results analysis_results_pkey; Type: CONSTRAINT; Schema: public; Owner: fins
+-- Name: analysis_results analysis_results_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.analysis_results
@@ -333,7 +305,7 @@ ALTER TABLE ONLY public.analysis_results
 
 
 --
--- Name: batch_update_log batch_update_log_pkey; Type: CONSTRAINT; Schema: public; Owner: fins
+-- Name: batch_update_log batch_update_log_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.batch_update_log
@@ -341,7 +313,7 @@ ALTER TABLE ONLY public.batch_update_log
 
 
 --
--- Name: errors errors_pkey; Type: CONSTRAINT; Schema: public; Owner: fins
+-- Name: errors errors_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.errors
@@ -349,7 +321,7 @@ ALTER TABLE ONLY public.errors
 
 
 --
--- Name: symbols idx_16389_sqlite_autoindex_symbols_1; Type: CONSTRAINT; Schema: public; Owner: fins
+-- Name: symbols idx_16389_sqlite_autoindex_symbols_1; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.symbols
@@ -357,7 +329,7 @@ ALTER TABLE ONLY public.symbols
 
 
 --
--- Name: weekly_prices idx_16394_sqlite_autoindex_weekly_prices_1; Type: CONSTRAINT; Schema: public; Owner: fins
+-- Name: weekly_prices idx_16394_sqlite_autoindex_weekly_prices_1; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.weekly_prices
@@ -365,7 +337,7 @@ ALTER TABLE ONLY public.weekly_prices
 
 
 --
--- Name: monthly_prices idx_16403_sqlite_autoindex_monthly_prices_1; Type: CONSTRAINT; Schema: public; Owner: fins
+-- Name: monthly_prices idx_16403_sqlite_autoindex_monthly_prices_1; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.monthly_prices
@@ -373,7 +345,7 @@ ALTER TABLE ONLY public.monthly_prices
 
 
 --
--- Name: notes idx_16521_sqlite_autoindex_notes_1; Type: CONSTRAINT; Schema: public; Owner: fins
+-- Name: notes idx_16521_sqlite_autoindex_notes_1; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.notes
@@ -381,7 +353,7 @@ ALTER TABLE ONLY public.notes
 
 
 --
--- Name: user_favorites user_favorites_pkey; Type: CONSTRAINT; Schema: public; Owner: fins
+-- Name: user_favorites user_favorites_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.user_favorites
@@ -389,7 +361,7 @@ ALTER TABLE ONLY public.user_favorites
 
 
 --
--- Name: user_favorites user_favorites_user_ticker_unique; Type: CONSTRAINT; Schema: public; Owner: fins
+-- Name: user_favorites user_favorites_user_ticker_unique; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.user_favorites
@@ -397,7 +369,7 @@ ALTER TABLE ONLY public.user_favorites
 
 
 --
--- Name: user_ratings user_ratings_pkey; Type: CONSTRAINT; Schema: public; Owner: fins
+-- Name: user_ratings user_ratings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.user_ratings
@@ -405,7 +377,7 @@ ALTER TABLE ONLY public.user_ratings
 
 
 --
--- Name: users users_name_key; Type: CONSTRAINT; Schema: public; Owner: fins
+-- Name: users users_name_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.users
@@ -413,7 +385,7 @@ ALTER TABLE ONLY public.users
 
 
 --
--- Name: users users_pkey; Type: CONSTRAINT; Schema: public; Owner: fins
+-- Name: users users_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.users
@@ -421,98 +393,98 @@ ALTER TABLE ONLY public.users
 
 
 --
--- Name: idx_16394_idx_weekly_symbol_date; Type: INDEX; Schema: public; Owner: fins
+-- Name: idx_16394_idx_weekly_symbol_date; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_16394_idx_weekly_symbol_date ON public.weekly_prices USING btree (symbol_ticker, date);
 
 
 --
--- Name: idx_16403_idx_monthly_symbol_date; Type: INDEX; Schema: public; Owner: fins
+-- Name: idx_16403_idx_monthly_symbol_date; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_16403_idx_monthly_symbol_date ON public.monthly_prices USING btree (symbol_ticker, date);
 
 
 --
--- Name: idx_analysis_mean; Type: INDEX; Schema: public; Owner: fins
+-- Name: idx_analysis_mean; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_analysis_mean ON public.analysis_results USING btree (package_id, mean);
 
 
 --
--- Name: idx_analysis_packages_user; Type: INDEX; Schema: public; Owner: fins
+-- Name: idx_analysis_packages_user; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_analysis_packages_user ON public.analysis_packages USING btree (user_id);
 
 
 --
--- Name: idx_analysis_stddev; Type: INDEX; Schema: public; Owner: fins
+-- Name: idx_analysis_stddev; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_analysis_stddev ON public.analysis_results USING btree (package_id, stddev);
 
 
 --
--- Name: idx_analysis_variance; Type: INDEX; Schema: public; Owner: fins
+-- Name: idx_analysis_variance; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_analysis_variance ON public.analysis_results USING btree (package_id, variance);
 
 
 --
--- Name: idx_errors_source; Type: INDEX; Schema: public; Owner: fins
+-- Name: idx_errors_source; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_errors_source ON public.errors USING btree (source);
 
 
 --
--- Name: idx_errors_timestamp; Type: INDEX; Schema: public; Owner: fins
+-- Name: idx_errors_timestamp; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_errors_timestamp ON public.errors USING btree ("timestamp" DESC);
 
 
 --
--- Name: idx_user_favorites_user; Type: INDEX; Schema: public; Owner: fins
+-- Name: idx_user_favorites_user; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_user_favorites_user ON public.user_favorites USING btree (user_id);
 
 
 --
--- Name: idx_user_ratings_ticker; Type: INDEX; Schema: public; Owner: fins
+-- Name: idx_user_ratings_ticker; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_user_ratings_ticker ON public.user_ratings USING btree (ticker);
 
 
 --
--- Name: idx_user_ratings_ticker_created; Type: INDEX; Schema: public; Owner: fins
+-- Name: idx_user_ratings_ticker_created; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_user_ratings_ticker_created ON public.user_ratings USING btree (ticker, created_at DESC);
 
 
 --
--- Name: idx_user_ratings_user; Type: INDEX; Schema: public; Owner: fins
+-- Name: idx_user_ratings_user; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_user_ratings_user ON public.user_ratings USING btree (user_id);
 
 
 --
--- Name: idx_user_ratings_user_ticker; Type: INDEX; Schema: public; Owner: fins
+-- Name: idx_user_ratings_user_ticker; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_user_ratings_user_ticker ON public.user_ratings USING btree (user_id, ticker);
 
 
 --
--- Name: analysis_results analysis_results_package_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: fins
+-- Name: analysis_results analysis_results_package_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.analysis_results
@@ -520,7 +492,7 @@ ALTER TABLE ONLY public.analysis_results
 
 
 --
--- Name: monthly_prices monthly_prices_symbol_ticker_fkey; Type: FK CONSTRAINT; Schema: public; Owner: fins
+-- Name: monthly_prices monthly_prices_symbol_ticker_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.monthly_prices
@@ -528,7 +500,7 @@ ALTER TABLE ONLY public.monthly_prices
 
 
 --
--- Name: weekly_prices weekly_prices_symbol_ticker_fkey; Type: FK CONSTRAINT; Schema: public; Owner: fins
+-- Name: weekly_prices weekly_prices_symbol_ticker_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.weekly_prices

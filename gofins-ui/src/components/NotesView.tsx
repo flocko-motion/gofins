@@ -21,7 +21,7 @@ export default function NotesView({ onOpenSymbol }: NotesViewProps) {
 
     const fetchNotes = async () => {
         try {
-            const response = await fetch('http://localhost:8080/api/notes');
+            const response = await fetch('/api/notes');
             if (!response.ok) throw new Error('Failed to fetch notes');
             const data = await response.json();
             setNotes(data || []);
@@ -35,7 +35,7 @@ export default function NotesView({ onOpenSymbol }: NotesViewProps) {
 
     const fetchFavorites = async () => {
         try {
-            const response = await fetch('http://localhost:8080/api/favorites');
+            const response = await fetch('/api/favorites');
             if (response.ok) {
                 const data = await response.json();
                 setFavorites(new Set(data || []));
@@ -47,7 +47,7 @@ export default function NotesView({ onOpenSymbol }: NotesViewProps) {
 
     const toggleFavorite = async (ticker: string) => {
         try {
-            const response = await fetch(`http://localhost:8080/api/favorites/${ticker}`, {
+            const response = await fetch(`/api/favorites/${ticker}`, {
                 method: 'POST'
             });
             if (response.ok) {

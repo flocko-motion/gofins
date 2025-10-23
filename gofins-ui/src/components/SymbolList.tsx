@@ -78,7 +78,7 @@ export default function SymbolList({ endpoint, description, onOpenSymbol, defaul
     const toggleFavorite = async (ticker: string, e: React.MouseEvent) => {
         e.stopPropagation();
         try {
-            const response = await fetch(`http://localhost:8080/api/favorites/${ticker}`, { method: 'POST' });
+            const response = await fetch(`/api/favorites/${ticker}`, { method: 'POST' });
             const data = await response.json();
             setSymbols(prev => prev.map(s => s.ticker === ticker ? { ...s, isFavorite: data.isFavorite } : s));
             if (symbolCache[endpoint]) {
@@ -113,7 +113,7 @@ export default function SymbolList({ endpoint, description, onOpenSymbol, defaul
         setError(null);
 
         try {
-            const response = await fetch(`http://localhost:8080${endpoint}`);
+            const response = await fetch(`${endpoint}`);
             if (!response.ok) {
                 throw new Error('Failed to fetch symbols');
             }

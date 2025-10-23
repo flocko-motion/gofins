@@ -22,9 +22,12 @@ else
     exit 1
 fi
 
-# Export schema only (no data)
+# Export schema only (no data, no ownership)
 echo "Exporting schema from local database..."
-docker exec fins-postgres pg_dump -U fins -d fins --schema-only > "$SCHEMA_FILE"
+docker exec fins-postgres pg_dump -U fins -d fins --schema-only --no-owner --no-acl > "$SCHEMA_FILE"
+
+# Replace local username 'fins' with production username 'gofins'
+sed -i 's/\bfins\b/gofins/g' "$SCHEMA_FILE"
 
 echo "✓ Schema exported to: $SCHEMA_FILE"
 echo ""

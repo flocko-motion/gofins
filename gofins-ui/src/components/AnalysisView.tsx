@@ -458,7 +458,7 @@ export default function AnalysisView({ data }: AnalysisViewProps) {
                                                     </td>
                                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                                         <img
-                                                            src={`http://localhost:8080/api/analysis/${data?.id}/chart/${result.symbol}`}
+                                                            src={`/api/analysis/${data?.id}/chart/${result.symbol}`}
                                                             alt={`Chart for ${result.symbol}`}
                                                             className="w-24 h-16 object-contain border border-gray-200 rounded"
                                                             onError={(e) => {
@@ -468,7 +468,7 @@ export default function AnalysisView({ data }: AnalysisViewProps) {
                                                     </td>
                                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                                         <img
-                                                            src={`http://localhost:8080/api/analysis/${data?.id}/histogram/${result.symbol}`}
+                                                            src={`/api/analysis/${data?.id}/histogram/${result.symbol}`}
                                                             alt={`Histogram for ${result.symbol}`}
                                                             className="w-24 h-16 object-contain border border-gray-200 rounded"
                                                             onError={(e) => {

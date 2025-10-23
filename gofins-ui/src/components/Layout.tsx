@@ -44,7 +44,7 @@ export default function Layout() {
 
     // Fetch current user on mount
     useEffect(() => {
-        fetch('http://localhost:8080/api/user')
+        fetch('/api/user')
             .then(res => res.json())
             .then(data => setUser(data))
             .catch(err => console.error('Failed to fetch user:', err));

@@ -17,7 +17,7 @@ export default function ErrorsView() {
 
     const fetchErrors = async () => {
         try {
-            const response = await fetch('http://localhost:8080/api/errors');
+            const response = await fetch('/api/errors');
             if (!response.ok) throw new Error('Failed to fetch errors');
             const data = await response.json();
             setErrors(data || []);
@@ -33,7 +33,7 @@ export default function ErrorsView() {
         if (!confirm('Clear all errors from the database?')) return;
         
         try {
-            const response = await fetch('http://localhost:8080/api/errors', {
+            const response = await fetch('/api/errors', {
                 method: 'DELETE'
             });
             if (!response.ok) throw new Error('Failed to clear errors');

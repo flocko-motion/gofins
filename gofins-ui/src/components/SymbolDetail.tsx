@@ -55,8 +55,8 @@ export default function SymbolDetail({ symbol, analysisId, onClose }: SymbolDeta
             setError(null);
             try {
                 const url = analysisId
-                    ? `http://localhost:8080/api/analysis/${analysisId}/profile/${symbol}`
-                    : `http://localhost:8080/api/symbol/${symbol}`;
+                    ? `/api/analysis/${analysisId}/profile/${symbol}`
+                    : `/api/symbol/${symbol}`;
 
                 const response = await fetch(url);
                 if (!response.ok) {
@@ -78,7 +78,7 @@ export default function SymbolDetail({ symbol, analysisId, onClose }: SymbolDeta
     useEffect(() => {
         const fetchRatingHistory = async () => {
             try {
-                const response = await fetch(`http://localhost:8080/api/ratings/${symbol}/history`);
+                const response = await fetch(`/api/ratings/${symbol}/history`);
                 if (response.ok) {
                     const data = await response.json();
                     setRatingHistory(data || []);
@@ -92,7 +92,7 @@ export default function SymbolDetail({ symbol, analysisId, onClose }: SymbolDeta
 
     const toggleFavorite = async () => {
         try {
-            const response = await fetch(`http://localhost:8080/api/favorites/${symbol}`, { method: 'POST' });
+            const response = await fetch(`/api/favorites/${symbol}`, { method: 'POST' });
             const data = await response.json();
             setIsFavorite(data.isFavorite);
         } catch (err) {
@@ -104,7 +104,7 @@ export default function SymbolDetail({ symbol, analysisId, onClose }: SymbolDeta
         if (pricesFetched) return; // Already fetched
         setPricesLoading(true);
         try {
-            const response = await fetch(`http://localhost:8080/api/prices/monthly/${symbol}`);
+            const response = await fetch(`/api/prices/monthly/${symbol}`);
             if (response.ok) {
                 const data = await response.json();
                 setMonthlyPrices(data.prices || []);
@@ -121,7 +121,7 @@ export default function SymbolDetail({ symbol, analysisId, onClose }: SymbolDeta
         if (weeklyFetched) return;
         setWeeklyLoading(true);
         try {
-            const response = await fetch(`http://localhost:8080/api/prices/weekly/${symbol}`);
+            const response = await fetch(`/api/prices/weekly/${symbol}`);
             if (response.ok) {
                 const data = await response.json();
                 setWeeklyPrices(data.prices || []);
@@ -175,12 +175,12 @@ export default function SymbolDetail({ symbol, analysisId, onClose }: SymbolDeta
         if (!confirm('Delete this rating?')) return;
 
         try {
-            const response = await fetch(`http://localhost:8080/api/ratings/${ratingId}`, {
+            const response = await fetch(`/api/ratings/${ratingId}`, {
                 method: 'DELETE'
             });
             if (response.ok) {
                 // Refresh rating history
-                const historyResponse = await fetch(`http://localhost:8080/api/ratings/${symbol}/history`);
+                const historyResponse = await fetch(`/api/ratings/${symbol}/history`);
                 if (historyResponse.ok) {
                     const data = await historyResponse.json();
                     setRatingHistory(data || []);
@@ -202,14 +202,14 @@ export default function SymbolDetail({ symbol, analysisId, onClose }: SymbolDeta
         }
         setSubmitting(true);
         try {
-            const response = await fetch(`http://localhost:8080/api/ratings/${symbol}`, {
+            const response = await fetch(`/api/ratings/${symbol}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ rating, notes: notes || undefined })
             });
             if (response.ok) {
                 // Refresh rating history
-                const historyResponse = await fetch(`http://localhost:8080/api/ratings/${symbol}/history`);
+                const historyResponse = await fetch(`/api/ratings/${symbol}/history`);
                 if (historyResponse.ok) {
                     const data = await historyResponse.json();
                     setRatingHistory(data || []);
@@ -389,12 +389,12 @@ export default function SymbolDetail({ symbol, analysisId, onClose }: SymbolDeta
     }, [symbol, onClose, handleSubmitRating]);
 
     const chartUrl = analysisId
-        ? `http://localhost:8080/api/analysis/${analysisId}/chart/${symbol}`
-        : `http://localhost:8080/api/symbol/${symbol}/chart`;
+        ? `/api/analysis/${analysisId}/chart/${symbol}`
+        : `/api/symbol/${symbol}/chart`;
 
     const histogramUrl = analysisId
-        ? `http://localhost:8080/api/analysis/${analysisId}/histogram/${symbol}`
-        : `http://localhost:8080/api/symbol/${symbol}/histogram`;
+        ? `/api/analysis/${analysisId}/histogram/${symbol}`
+        : `/api/symbol/${symbol}/histogram`;
 
     return (
         <>
