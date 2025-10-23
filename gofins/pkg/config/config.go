@@ -141,6 +141,9 @@ func GetDefaultUser() (string, error) {
 	if err != nil {
 		return "", err
 	}
+	if cfg == nil {
+		return "", fmt.Errorf("config not loaded")
+	}
 	return cfg.DefaultUser, nil
 }
 

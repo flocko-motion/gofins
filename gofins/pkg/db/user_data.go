@@ -29,8 +29,8 @@ func CreateUser(name string) (*types.User, error) {
 	err = db.conn.QueryRow(`
 		INSERT INTO users (id, name, created_at, is_admin)
 		VALUES ($1, $2, NOW(), $3)
-		RETURNING id, name, created_at
-	`, userID, name, isAdmin).Scan(&user.ID, &user.Name, &user.CreatedAt)
+		RETURNING id, name, created_at, is_admin
+	`, userID, name, isAdmin).Scan(&user.ID, &user.Name, &user.CreatedAt, &user.IsAdmin)
 
 	if err != nil {
 		return nil, err
@@ -45,10 +45,10 @@ func GetUser(name string) (*types.User, error) {
 
 	var user types.User
 	err := db.conn.QueryRow(`
-		SELECT id, name, created_at
+		SELECT id, name, created_at, is_admin
 		FROM users
 		WHERE name = $1
-	`, name).Scan(&user.ID, &user.Name, &user.CreatedAt)
+	`, name).Scan(&user.ID, &user.Name, &user.CreatedAt, &user.IsAdmin)
 
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -66,10 +66,10 @@ func GetUserByID(id uuid.UUID) (*types.User, error) {
 
 	var user types.User
 	err := db.conn.QueryRow(`
-		SELECT id, name, created_at
+		SELECT id, name, created_at, is_admin
 		FROM users
 		WHERE id = $1
-	`, id).Scan(&user.ID, &user.Name, &user.CreatedAt)
+	`, id).Scan(&user.ID, &user.Name, &user.CreatedAt, &user.IsAdmin)
 
 	if err == sql.ErrNoRows {
 		return nil, nil
@@ -86,7 +86,7 @@ func ListUsers() ([]types.User, error) {
 	db := Db()
 
 	rows, err := db.conn.Query(`
-		SELECT id, name, created_at
+		SELECT id, name, created_at, is_admin
 		FROM users
 		ORDER BY created_at ASC
 	`)
@@ -98,7 +98,7 @@ func ListUsers() ([]types.User, error) {
 	var users []types.User
 	for rows.Next() {
 		var user types.User
-		if err := rows.Scan(&user.ID, &user.Name, &user.CreatedAt); err != nil {
+		if err := rows.Scan(&user.ID, &user.Name, &user.CreatedAt, &user.IsAdmin); err != nil {
 			return nil, err
 		}
 		users = append(users, user)
