@@ -26,7 +26,7 @@ services:
       DB_PASSWORD: ${DB_PASSWORD}
       FMP_API_KEY: ${FMP_API_KEY}
     volumes:
-      - fins_cache:/root/.fins/cache
+      - fins_cache:/root/.gofins/cache
     ports:
       - "127.0.0.1:7702:8080"
     depends_on:
