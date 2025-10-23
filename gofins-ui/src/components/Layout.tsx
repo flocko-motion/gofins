@@ -45,7 +45,8 @@ export default function Layout() {
 
     // Fetch current user on mount
     useEffect(() => {
-        api.get<User>('user')
+        // Add cache buster to force fresh fetch
+        api.get<User>(`user?_=${Date.now()}`)
             .then(data => setUser(data))
             .catch(err => console.error('Failed to fetch user:', err));
     }, []);

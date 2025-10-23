@@ -7,7 +7,6 @@ import (
 
 	"github.com/flocko-motion/gofins/pkg/config"
 	"github.com/flocko-motion/gofins/pkg/db"
-	"github.com/flocko-motion/gofins/pkg/f"
 	"github.com/google/uuid"
 )
 
@@ -73,24 +72,29 @@ func getUserID(r *http.Request) uuid.UUID {
 	return userID
 }
 
-// adminOnlyMiddleware restricts access to admin user (default user from config)
+// adminOnlyMiddleware restricts access to admin users (checks is_admin from database)
 func (s *Server) adminOnlyMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Get current user ID from context
 		userID := getUserID(r)
 		
-		// Get admin user ID (default user from config)
-		defaultUser, err := config.GetDefaultUser()
+		// Get user from database to check is_admin field
+		user, err := db.GetUserByID(userID)
 		if err != nil {
-			fmt.Printf("[API] Error getting admin user: %v\n", err)
-			_ = db.Db().LogError("api.admin_middleware", "error", "Failed to get admin user", map[string]interface{}{"error": err.Error()})
+			fmt.Printf("[API] Error getting user for admin check: %v\n", err)
+			_ = db.Db().LogError("api.admin_middleware", "error", "Failed to get user", map[string]interface{}{"user_id": userID.String(), "error": err.Error()})
 			http.Error(w, "Authentication error", http.StatusInternalServerError)
 			return
 		}
-		adminID := f.StringToUUID(defaultUser)
 		
-		// Check if current user is admin
-		if userID != adminID {
+		if user == nil {
+			fmt.Printf("[API] User not found for admin check: %s\n", userID)
+			http.Error(w, "Authentication error", http.StatusInternalServerError)
+			return
+		}
+		
+		// Check if user is admin
+		if !user.IsAdmin {
 			http.Error(w, "Forbidden: admin access required", http.StatusForbidden)
 			return
 		}

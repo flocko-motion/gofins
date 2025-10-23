@@ -11,7 +11,7 @@ import (
 func (s *Server) handleGetCurrentUser(w http.ResponseWriter, r *http.Request) {
 	// Get user ID from context
 	userID := getUserID(r)
-	
+
 	// Get user from database (includes is_admin from DB)
 	user, err := db.GetUserByID(userID)
 	if err != nil {
@@ -20,13 +20,13 @@ func (s *Server) handleGetCurrentUser(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to get user", http.StatusInternalServerError)
 		return
 	}
-	
+
 	if user == nil {
 		fmt.Printf("[API] User not found for ID '%s'\n", userID)
 		http.Error(w, "User not found", http.StatusNotFound)
 		return
 	}
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(user)
 }
