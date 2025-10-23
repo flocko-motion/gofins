@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
 	"github.com/flocko-motion/gofins/pkg/config"
@@ -30,7 +31,9 @@ func (s *Server) userMiddleware(next http.Handler) http.Handler {
 			var err error
 			username, err = config.GetDefaultUser()
 			if err != nil {
-				http.Error(w, "Failed to get user: "+err.Error(), http.StatusInternalServerError)
+				fmt.Printf("[API] Error getting default user: %v\n", err)
+				_ = db.Db().LogError("api.user_middleware", "error", "Failed to get default user", map[string]interface{}{"error": err.Error()})
+				http.Error(w, "Authentication error", http.StatusInternalServerError)
 				return
 			}
 		}
@@ -38,14 +41,18 @@ func (s *Server) userMiddleware(next http.Handler) http.Handler {
 		// 4. Get or create user (auto-creates on first access)
 		user, err := db.GetUser(username)
 		if err != nil {
-			http.Error(w, "Failed to get user: "+err.Error(), http.StatusInternalServerError)
+			fmt.Printf("[API] Error getting user '%s': %v\n", username, err)
+			_ = db.Db().LogError("api.user_middleware", "error", "Failed to get user", map[string]interface{}{"username": username, "error": err.Error()})
+			http.Error(w, "Authentication error", http.StatusInternalServerError)
 			return
 		}
 		if user == nil {
 			// User doesn't exist, create them
 			user, err = db.CreateUser(username)
 			if err != nil {
-				http.Error(w, "Failed to create user: "+err.Error(), http.StatusInternalServerError)
+				fmt.Printf("[API] Error creating user '%s': %v\n", username, err)
+				_ = db.Db().LogError("api.user_middleware", "error", "Failed to create user", map[string]interface{}{"username": username, "error": err.Error()})
+				http.Error(w, "Authentication error", http.StatusInternalServerError)
 				return
 			}
 		}
@@ -75,7 +82,9 @@ func (s *Server) adminOnlyMiddleware(next http.Handler) http.Handler {
 		// Get admin user ID (default user from config)
 		defaultUser, err := config.GetDefaultUser()
 		if err != nil {
-			http.Error(w, "Failed to get admin user", http.StatusInternalServerError)
+			fmt.Printf("[API] Error getting admin user: %v\n", err)
+			_ = db.Db().LogError("api.admin_middleware", "error", "Failed to get admin user", map[string]interface{}{"error": err.Error()})
+			http.Error(w, "Authentication error", http.StatusInternalServerError)
 			return
 		}
 		adminID := f.StringToUUID(defaultUser)

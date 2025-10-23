@@ -247,7 +247,8 @@ ALTER SEQUENCE public.user_ratings_id_seq OWNED BY public.user_ratings.id;
 CREATE TABLE public.users (
     id uuid NOT NULL,
     name character varying(255) NOT NULL,
-    created_at timestamp without time zone DEFAULT now() NOT NULL
+    created_at timestamp without time zone DEFAULT now() NOT NULL,
+    is_admin boolean DEFAULT false NOT NULL
 );
 
 
