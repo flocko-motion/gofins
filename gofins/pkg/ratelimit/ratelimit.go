@@ -37,28 +37,34 @@ func NewLimiter(requestsPerMinute int) *Limiter {
 }
 
 // Wait blocks until the rate limit allows the next request
-// Must hold lock for entire duration to ensure strict rate limiting
+// Releases lock during sleep to allow other goroutines to calculate their wait time
 func (l *Limiter) Wait() error {
 	l.mu.Lock()
-	defer l.mu.Unlock()
-
+	
 	if l.isShutdown {
+		l.mu.Unlock()
 		return ErrShutdown
 	}
 
 	now := time.Now()
 	elapsed := now.Sub(l.lastRequest)
 
+	var sleepDuration time.Duration
 	if elapsed < l.interval {
-		sleepDuration := l.interval - elapsed
-		if sleepDuration > 0 {
-			// Sleep while holding lock (matches Python implementation)
-			time.Sleep(sleepDuration)
-		}
+		sleepDuration = l.interval - elapsed
+		// Reserve this slot by updating timestamp before releasing lock
+		l.lastRequest = now.Add(sleepDuration)
+	} else {
+		l.lastRequest = now
+	}
+	
+	l.mu.Unlock()
+	
+	// Sleep outside the lock to allow parallel processing
+	if sleepDuration > 0 {
+		time.Sleep(sleepDuration)
 	}
 
-	// Update timestamp after sleep
-	l.lastRequest = time.Now()
 	return nil
 }
 
