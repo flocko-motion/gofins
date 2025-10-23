@@ -25,11 +25,6 @@ func (s *Server) userMiddleware(next http.Handler) http.Handler {
 			// 2. Check X-Remote-User header (from Apache .htaccess auth)
 			fmt.Printf("[API] X-Remote-User: %s\n", user)
 			username = user
-			if user == "" {
-				fmt.Printf("[API] X-Remote-User header is empty\n")
-				http.Error(w, "Authentication required", http.StatusUnauthorized)
-				return
-			}
 		} else {
 			// 3. No authentication found - this should not happen in production
 			fmt.Printf("[API] No authentication: no --user flag and no X-Remote-User header\n")
