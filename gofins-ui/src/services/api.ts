@@ -1,11 +1,18 @@
-// Relative to Vite's base config (/gofins/ in production, / in dev)
-const API_BASE_URL = 'api';
+// API base URL: localhost:8080 in dev, relative path in production
+const API_BASE_URL = import.meta.env.DEV 
+    ? 'http://localhost:8080/api'
+    : 'api';
 
 // Helper to build API URLs consistently (internal use only)
 const apiUrl = (endpoint: string): string => {
     // Remove leading slash if present
     const cleanEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint;
     return `${API_BASE_URL}/${cleanEndpoint}`;
+};
+
+// Helper to build image URLs (charts, histograms, etc.)
+export const imageUrl = (endpoint: string): string => {
+    return apiUrl(endpoint);
 };
 
 // Generic API call with error handling

@@ -67,7 +67,7 @@ export default function SymbolList({ endpoint, description, onOpenSymbol, defaul
                 symbolCache[endpoint] = symbolCache[endpoint].map(s => s.ticker === ticker ? { ...s, isFavorite: data.isFavorite } : s);
             }
             // Invalidate favorites cache since the list changed
-            delete symbolCache['/api/symbols/favorites'];
+            delete symbolCache['symbols/favorites'];
         } catch (err) {
             console.error('Failed to toggle favorite:', err);
         }
@@ -95,12 +95,7 @@ export default function SymbolList({ endpoint, description, onOpenSymbol, defaul
         setError(null);
 
         try {
-            const response = await fetch(`${endpoint}`);
-            if (!response.ok) {
-                throw new Error('Failed to fetch symbols');
-            }
-
-            const data = await response.json();
+            const data = await api.get<{ symbols: Symbol[] }>(endpoint);
             const fetchedSymbols = data.symbols || [];
 
             // Cache the results

@@ -23,7 +23,7 @@ export default function TabContent({ tabType, data, onOpenAnalysis, onOpenSymbol
         case 'stocks':
             return (
                 <SymbolList 
-                    endpoint="/api/symbols/active"
+                    endpoint="symbols/active"
                     description="All actively trading stocks in the database"
                     onOpenSymbol={onOpenSymbol}
                 />

@@ -7,7 +7,7 @@ interface FavoritesViewProps {
 export default function FavoritesView({ onOpenSymbol }: FavoritesViewProps) {
     return (
         <SymbolList 
-            endpoint="/api/symbols/favorites"
+            endpoint="symbols/favorites"
             description=""
             onOpenSymbol={onOpenSymbol}
         />

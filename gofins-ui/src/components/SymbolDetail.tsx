@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { api, type SymbolProfile, type UserRating, type PriceData } from '../services/api';
+import { api, imageUrl, type SymbolProfile, type UserRating, type PriceData } from '../services/api';
+import PriceTable from './PriceTable';
 
 interface SymbolDetailProps {
     symbol: string;
@@ -54,11 +55,8 @@ export default function SymbolDetail({ symbol, analysisId, onClose }: SymbolDeta
     useEffect(() => {
         const fetchRatingHistory = async () => {
             try {
-                const response = await fetch(`/api/ratings/${symbol}/history`);
-                if (response.ok) {
-                    const data = await response.json();
-                    setRatingHistory(data || []);
-                }
+                const data = await api.get<UserRating[]>(`ratings/${symbol}/history`);
+                setRatingHistory(data || []);
             } catch (err) {
                 console.error('Failed to fetch rating history:', err);
             }
@@ -68,8 +66,7 @@ export default function SymbolDetail({ symbol, analysisId, onClose }: SymbolDeta
 
     const toggleFavorite = async () => {
         try {
-            const response = await fetch(`/api/favorites/${symbol}`, { method: 'POST' });
-            const data = await response.json();
+            const data = await api.post<{ isFavorite: boolean }>(`favorites/${symbol}`);
             setIsFavorite(data.isFavorite);
         } catch (err) {
             console.error('Failed to toggle favorite:', err);
@@ -80,12 +77,9 @@ export default function SymbolDetail({ symbol, analysisId, onClose }: SymbolDeta
         if (pricesFetched) return; // Already fetched
         setPricesLoading(true);
         try {
-            const response = await fetch(`/api/prices/monthly/${symbol}`);
-            if (response.ok) {
-                const data = await response.json();
-                setMonthlyPrices(data.prices || []);
-                setPricesFetched(true);
-            }
+            const data = await api.get<{ prices: PriceData[] }>(`prices/monthly/${symbol}`);
+            setMonthlyPrices(data.prices || []);
+            setPricesFetched(true);
         } catch (err) {
             console.error('Failed to fetch monthly prices:', err);
         } finally {
@@ -97,12 +91,9 @@ export default function SymbolDetail({ symbol, analysisId, onClose }: SymbolDeta
         if (weeklyFetched) return;
         setWeeklyLoading(true);
         try {
-            const response = await fetch(`/api/prices/weekly/${symbol}`);
-            if (response.ok) {
-                const data = await response.json();
-                setWeeklyPrices(data.prices || []);
-                setWeeklyFetched(true);
-            }
+            const data = await api.get<{ prices: PriceData[] }>(`prices/weekly/${symbol}`);
+            setWeeklyPrices(data.prices || []);
+            setWeeklyFetched(true);
         } catch (err) {
             console.error('Failed to fetch weekly prices:', err);
         } finally {
@@ -151,21 +142,12 @@ export default function SymbolDetail({ symbol, analysisId, onClose }: SymbolDeta
         if (!confirm('Delete this rating?')) return;
 
         try {
-            const response = await fetch(`/api/ratings/${ratingId}`, {
-                method: 'DELETE'
-            });
-            if (response.ok) {
-                // Refresh rating history
-                const historyResponse = await fetch(`/api/ratings/${symbol}/history`);
-                if (historyResponse.ok) {
-                    const data = await historyResponse.json();
-                    setRatingHistory(data || []);
-                }
-                // Clear symbol list cache to force refresh when user returns to stocks tab
-                sessionStorage.setItem('symbolCacheInvalidated', Date.now().toString());
-            } else {
-                alert('Failed to delete rating');
-            }
+            await api.delete(`ratings/${ratingId}`);
+            // Refresh rating history
+            const data = await api.get<UserRating[]>(`ratings/${symbol}/history`);
+            setRatingHistory(data || []);
+            // Clear symbol list cache to force refresh when user returns to stocks tab
+            sessionStorage.setItem('symbolCacheInvalidated', Date.now().toString());
         } catch (err) {
             alert('Error deleting rating');
         }
@@ -178,28 +160,17 @@ export default function SymbolDetail({ symbol, analysisId, onClose }: SymbolDeta
         }
         setSubmitting(true);
         try {
-            const response = await fetch(`/api/ratings/${symbol}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ rating, notes: notes || undefined })
-            });
-            if (response.ok) {
-                // Refresh rating history
-                const historyResponse = await fetch(`/api/ratings/${symbol}/history`);
-                if (historyResponse.ok) {
-                    const data = await historyResponse.json();
-                    setRatingHistory(data || []);
-                }
-                // Reset form and blur textarea
-                setRating(null);
-                setNotes('');
-                const textarea = document.querySelector('textarea[placeholder*="Optional notes"]') as HTMLTextAreaElement;
-                if (textarea) textarea.blur();
-                // Clear symbol list cache to force refresh when user returns to stocks tab
-                sessionStorage.setItem('symbolCacheInvalidated', Date.now().toString());
-            } else {
-                alert('Failed to submit rating');
-            }
+            await api.post(`ratings/${symbol}`, { rating, notes: notes || undefined });
+            // Refresh rating history
+            const data = await api.get<UserRating[]>(`ratings/${symbol}/history`);
+            setRatingHistory(data || []);
+            // Reset form and blur textarea
+            setRating(null);
+            setNotes('');
+            const textarea = document.querySelector('textarea[placeholder*="Optional notes"]') as HTMLTextAreaElement;
+            if (textarea) textarea.blur();
+            // Clear symbol list cache to force refresh when user returns to stocks tab
+            sessionStorage.setItem('symbolCacheInvalidated', Date.now().toString());
         } catch (err) {
             alert('Error submitting rating');
         } finally {
@@ -364,13 +335,14 @@ export default function SymbolDetail({ symbol, analysisId, onClose }: SymbolDeta
         return () => document.removeEventListener('keydown', handleKeyDown);
     }, [symbol, onClose, handleSubmitRating]);
 
+    // Build image URLs using imageUrl helper
     const chartUrl = analysisId
-        ? `/api/analysis/${analysisId}/chart/${symbol}`
-        : `/api/symbol/${symbol}/chart`;
+        ? imageUrl(`analysis/${analysisId}/chart/${symbol}`)
+        : imageUrl(`symbol/${symbol}/chart`);
 
     const histogramUrl = analysisId
-        ? `/api/analysis/${analysisId}/histogram/${symbol}`
-        : `/api/symbol/${symbol}/histogram`;
+        ? imageUrl(`analysis/${analysisId}/histogram/${symbol}`)
+        : imageUrl(`symbol/${symbol}/histogram`);
 
     return (
         <>
@@ -494,121 +466,27 @@ export default function SymbolDetail({ symbol, analysisId, onClose }: SymbolDeta
                 </div>
             )}
 
-            {/* Monthly Prices Table - Collapsible */}
-            <div ref={pricesSectionRef} className="mb-8">
-                <button
-                    onClick={togglePrices}
-                    className="flex items-center gap-2 text-lg font-semibold mb-4 hover:text-gray-700"
-                >
-                    <span>{pricesExpanded ? '▼' : '▶'}</span>
-                    <span>Monthly Prices</span>
-                </button>
-                {pricesExpanded && (
-                    <div>
-                        {pricesLoading ? (
-                            <div className="text-center py-4">
-                                <p className="text-gray-500">Loading prices...</p>
-                            </div>
-                        ) : monthlyPrices.length > 0 ? (
-                            <div className="overflow-x-auto">
-                                <table className="min-w-full border border-gray-200 text-sm">
-                                    <thead className="bg-gray-50">
-                                        <tr>
-                                            <th className="px-4 py-2 text-left font-medium text-gray-600 border-b">Date</th>
-                                            <th className="px-4 py-2 text-right font-medium text-gray-600 border-b">Open</th>
-                                            <th className="px-4 py-2 text-right font-medium text-gray-600 border-b">High</th>
-                                            <th className="px-4 py-2 text-right font-medium text-gray-600 border-b">Low</th>
-                                            <th className="px-4 py-2 text-right font-medium text-gray-600 border-b">Close</th>
-                                            <th className="px-4 py-2 text-right font-medium text-gray-600 border-b">Avg</th>
-                                            <th className="px-4 py-2 text-right font-medium text-gray-600 border-b">YoY %</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {monthlyPrices.map((price, idx) => (
-                                            <tr key={idx} className="hover:bg-gray-50">
-                                                <td className="px-4 py-2 border-b">
-                                                    {new Date(price.Date).toLocaleDateString('en-US', { year: 'numeric', month: 'short' })}
-                                                </td>
-                                                <td className="px-4 py-2 text-right border-b">{formatPrice(price.Open)}</td>
-                                                <td className="px-4 py-2 text-right border-b">{formatPrice(price.High)}</td>
-                                                <td className="px-4 py-2 text-right border-b">{formatPrice(price.Low)}</td>
-                                                <td className="px-4 py-2 text-right border-b font-medium">{formatPrice(price.Close)}</td>
-                                                <td className="px-4 py-2 text-right border-b">{formatPrice(price.Avg)}</td>
-                                                <td className={`px-4 py-2 text-right border-b ${price.YoY === null ? 'text-gray-400' :
-                                                    price.YoY > 0 ? 'text-green-600' :
-                                                        price.YoY < 0 ? 'text-red-600' : 'text-gray-600'
-                                                    }`}>
-                                                    {price.YoY === null ? 'N/A' : `${price.YoY > 0 ? '+' : ''}${price.YoY.toFixed(1)}%`}
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        ) : (
-                            <p className="text-gray-500">No monthly price data available</p>
-                        )}
-                    </div>
-                )}
-            </div>
+            {/* Monthly Prices Table */}
+            <PriceTable
+                title="Monthly Prices"
+                prices={monthlyPrices}
+                loading={pricesLoading}
+                expanded={pricesExpanded}
+                onToggle={togglePrices}
+                dateFormat="monthly"
+                sectionRef={pricesSectionRef}
+            />
 
-            {/* Weekly Prices Table - Collapsible */}
-            <div ref={weeklySectionRef} className="mb-8">
-                <button
-                    onClick={toggleWeekly}
-                    className="flex items-center gap-2 text-lg font-semibold mb-4 hover:text-gray-700"
-                >
-                    <span>{weeklyExpanded ? '▼' : '▶'}</span>
-                    <span>Weekly Prices</span>
-                </button>
-                {weeklyExpanded && (
-                    <div>
-                        {weeklyLoading ? (
-                            <div className="text-center py-4">
-                                <p className="text-gray-500">Loading prices...</p>
-                            </div>
-                        ) : weeklyPrices.length > 0 ? (
-                            <div className="overflow-x-auto">
-                                <table className="min-w-full border border-gray-200 text-sm">
-                                    <thead className="bg-gray-50">
-                                        <tr>
-                                            <th className="px-4 py-2 text-left font-medium text-gray-600 border-b">Date</th>
-                                            <th className="px-4 py-2 text-right font-medium text-gray-600 border-b">Open</th>
-                                            <th className="px-4 py-2 text-right font-medium text-gray-600 border-b">High</th>
-                                            <th className="px-4 py-2 text-right font-medium text-gray-600 border-b">Low</th>
-                                            <th className="px-4 py-2 text-right font-medium text-gray-600 border-b">Close</th>
-                                            <th className="px-4 py-2 text-right font-medium text-gray-600 border-b">Avg</th>
-                                            <th className="px-4 py-2 text-right font-medium text-gray-600 border-b">YoY %</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {weeklyPrices.map((price, idx) => (
-                                            <tr key={idx} className="hover:bg-gray-50">
-                                                <td className="px-4 py-2 border-b">
-                                                    {new Date(price.Date).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
-                                                </td>
-                                                <td className="px-4 py-2 text-right border-b">{formatPrice(price.Open)}</td>
-                                                <td className="px-4 py-2 text-right border-b">{formatPrice(price.High)}</td>
-                                                <td className="px-4 py-2 text-right border-b">{formatPrice(price.Low)}</td>
-                                                <td className="px-4 py-2 text-right border-b font-medium">{formatPrice(price.Close)}</td>
-                                                <td className="px-4 py-2 text-right border-b">{formatPrice(price.Avg)}</td>
-                                                <td className={`px-4 py-2 text-right border-b ${price.YoY === null ? 'text-gray-400' :
-                                                    price.YoY > 0 ? 'text-green-600' :
-                                                        price.YoY < 0 ? 'text-red-600' : 'text-gray-600'
-                                                    }`}>
-                                                    {price.YoY === null ? 'N/A' : `${price.YoY > 0 ? '+' : ''}${price.YoY.toFixed(1)}%`}
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        ) : (
-                            <p className="text-gray-500">No weekly price data available</p>
-                        )}
-                    </div>
-                )}
-            </div>
+            {/* Weekly Prices Table */}
+            <PriceTable
+                title="Weekly Prices"
+                prices={weeklyPrices}
+                loading={weeklyLoading}
+                expanded={weeklyExpanded}
+                onToggle={toggleWeekly}
+                dateFormat="weekly"
+                sectionRef={weeklySectionRef}
+            />
 
             {/* Profile Information */}
             {loading ? (
