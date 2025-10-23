@@ -38,10 +38,10 @@
         AuthName "gofins"
         AuthUserFile /opt/gofins/deployment/.htpasswd
         Require valid-user
+        
+        # Pass authenticated username to backend
+        RequestHeader set X-Remote-User %{REMOTE_USER}e
     </Location>
-
-    # Pass authenticated username to backend
-    RequestHeader set X-Remote-User %{REMOTE_USER}e
 
     # Proxy API requests to Go backend (port 7702)
     ProxyPreserveHost On
