@@ -34,7 +34,7 @@ func NewServer(database *db.DB, port int, devUser string) *Server {
 	r.Route("/api", func(r chi.Router) {
 		// Health & Debug
 		r.Get("/health", s.handleHealth)
-		r.Post("/debug/fmp-verbose/{enabled}", s.handleFMPVerbose)
+		r.Get("/debug/fmp-verbose/{enabled}", s.handleFMPVerbose)
 
 		// Symbols (public - no user context needed)
 		r.Get("/symbols", s.handleListSymbols)

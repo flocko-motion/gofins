@@ -40,7 +40,7 @@ func NewLimiter(requestsPerMinute int) *Limiter {
 // Releases lock during sleep to allow other goroutines to calculate their wait time
 func (l *Limiter) Wait() error {
 	l.mu.Lock()
-	
+
 	if l.isShutdown {
 		l.mu.Unlock()
 		return ErrShutdown
@@ -57,9 +57,9 @@ func (l *Limiter) Wait() error {
 	} else {
 		l.lastRequest = now
 	}
-	
+
 	l.mu.Unlock()
-	
+
 	// Sleep outside the lock to allow parallel processing
 	if sleepDuration > 0 {
 		time.Sleep(sleepDuration)
