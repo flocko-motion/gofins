@@ -29,9 +29,37 @@ var serverCmd = &cobra.Command{
 		sigChan := make(chan os.Signal, 1)
 		signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 
-		// init DB - initialize singleton
+		// init DB - initialize singleton with retry logic
 		fmt.Println("=== Initializing ===")
-		_ = db.Db() // Initialize database singleton (will panic if it fails)
+		var database *db.DB
+		maxRetries := 30
+		retryDelay := time.Second
+		
+		for i := 0; i < maxRetries; i++ {
+			database = db.Db()
+			if database != nil {
+				break
+			}
+			
+			if i == 0 {
+				fmt.Println("⏳ Database not ready, retrying...")
+			}
+			
+			if i < maxRetries-1 {
+				time.Sleep(retryDelay)
+				// Exponential backoff, max 10 seconds
+				retryDelay = time.Duration(float64(retryDelay) * 1.5)
+				if retryDelay > 10*time.Second {
+					retryDelay = 10 * time.Second
+				}
+				// Reset dbOnce to allow retry
+				db.ResetConnection()
+			}
+		}
+		
+		if database == nil {
+			return fmt.Errorf("failed to connect to database after %d retries", maxRetries)
+		}
 		fmt.Println("✓ Database connected")
 
 		// Start REST API server

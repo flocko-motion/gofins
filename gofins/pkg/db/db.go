@@ -38,15 +38,23 @@ var (
 	dbOnce   sync.Once
 )
 
+// ResetConnection resets the singleton so it can be retried.
+// Only use this for retry logic during initialization.
+func ResetConnection() {
+	dbOnce = sync.Once{}
+	globalDB = nil
+}
+
 // Db returns the global database connection singleton, initializing it on first call.
 // This connection is shared across the entire application and should NEVER be closed.
 // The connection is automatically managed and will be closed when the application exits.
-// Panics if the connection cannot be established.
+// Returns nil if the connection cannot be established.
 func Db() *DB {
 	dbOnce.Do(func() {
 		db, err := newDB()
 		if err != nil {
-			panic(fmt.Sprintf("Failed to initialize database connection: %v", err))
+			logf("Failed to initialize database connection: %v", err)
+			return
 		}
 		globalDB = db
 	})

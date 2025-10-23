@@ -1,5 +1,5 @@
 // API base URL: localhost:8080 in dev, relative path in production
-const API_BASE_URL = import.meta.env.DEV
+const API_BASE_URL = import.meta.env.DEV 
     ? 'http://localhost:8080/api'
     : 'api';
 
