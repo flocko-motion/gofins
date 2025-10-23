@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/flocko-motion/gofins/pkg/config"
 	"github.com/flocko-motion/gofins/pkg/db"
 	"github.com/google/uuid"
 )
@@ -14,7 +13,7 @@ type contextKey string
 
 const userIDKey contextKey = "userID"
 
-// userMiddleware extracts user from X-Remote-User header (Apache) or config file
+// userMiddleware extracts user from --user flag (dev) or X-Remote-User header (production)
 func (s *Server) userMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var username string
@@ -24,17 +23,19 @@ func (s *Server) userMiddleware(next http.Handler) http.Handler {
 			username = s.devUser
 		} else if user := r.Header.Get("X-Remote-User"); user != "" {
 			// 2. Check X-Remote-User header (from Apache .htaccess auth)
+			fmt.Printf("[API] X-Remote-User: %s\n", user)
 			username = user
-		} else {
-			// 3. Fallback to config file default user (for CLI/localhost)
-			var err error
-			username, err = config.GetDefaultUser()
-			if err != nil {
-				fmt.Printf("[API] Error getting default user: %v\n", err)
-				_ = db.Db().LogError("api.user_middleware", "error", "Failed to get default user", map[string]interface{}{"error": err.Error()})
-				http.Error(w, "Authentication error", http.StatusInternalServerError)
+			if user == "" {
+				fmt.Printf("[API] X-Remote-User header is empty\n")
+				http.Error(w, "Authentication required", http.StatusUnauthorized)
 				return
 			}
+		} else {
+			// 3. No authentication found - this should not happen in production
+			fmt.Printf("[API] No authentication: no --user flag and no X-Remote-User header\n")
+			_ = db.Db().LogError("api.user_middleware", "error", "No authentication provided", map[string]interface{}{"path": r.URL.Path})
+			http.Error(w, "Authentication required", http.StatusUnauthorized)
+			return
 		}
 
 		// 4. Get or create user (auto-creates on first access)
@@ -77,7 +78,7 @@ func (s *Server) adminOnlyMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Get current user ID from context
 		userID := getUserID(r)
-		
+
 		// Get user from database to check is_admin field
 		user, err := db.GetUserByID(userID)
 		if err != nil {
@@ -86,19 +87,19 @@ func (s *Server) adminOnlyMiddleware(next http.Handler) http.Handler {
 			http.Error(w, "Authentication error", http.StatusInternalServerError)
 			return
 		}
-		
+
 		if user == nil {
 			fmt.Printf("[API] User not found for admin check: %s\n", userID)
 			http.Error(w, "Authentication error", http.StatusInternalServerError)
 			return
 		}
-		
+
 		// Check if user is admin
 		if !user.IsAdmin {
 			http.Error(w, "Forbidden: admin access required", http.StatusForbidden)
 			return
 		}
-		
+
 		next.ServeHTTP(w, r)
 	})
 }
