@@ -29,8 +29,8 @@ type PriceUpdateConfig struct {
 
 func DefaultPriceUpdateConfig() PriceUpdateConfig {
 	return PriceUpdateConfig{
-		Workers:         5,
-		BatchSize:       100,
+		Workers:         20,
+		BatchSize:       200,
 		WriteToDb:       true,
 		EnableProfiling: false,
 		MaxSymbols:      0,

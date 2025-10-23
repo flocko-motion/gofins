@@ -132,13 +132,16 @@ func newClient(apiKeyPath *string) (*Client, error) {
 	}
 
 	// Create HTTP client with connection pooling
+	// Optimized for high-latency connections (e.g., EU server to US API)
 	httpClient := &http.Client{
 		Timeout: 30 * time.Second,
 		Transport: &http.Transport{
-			MaxIdleConns:        10,
-			MaxIdleConnsPerHost: 10,
-			MaxConnsPerHost:     10,
+			MaxIdleConns:        100,              // More idle connections
+			MaxIdleConnsPerHost: 100,              // Keep more connections to FMP alive
+			MaxConnsPerHost:     100,              // Allow more concurrent connections
 			IdleConnTimeout:     90 * time.Second,
+			DisableKeepAlives:   false,            // Explicitly enable keep-alive
+			DisableCompression:  false,            // Keep compression enabled
 		},
 	}
 
