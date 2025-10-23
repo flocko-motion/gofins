@@ -4,7 +4,6 @@ import PriceTable from './PriceTable';
 import SymbolProfileView from './SymbolProfile';
 import RatingSection from './RatingSection';
 import ChartSection, { type ChartSectionHandle } from './ChartSection';
-import { formatPrice } from '../utils/format';
 
 interface SymbolDetailProps {
     symbol: string;

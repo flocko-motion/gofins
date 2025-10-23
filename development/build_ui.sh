@@ -6,17 +6,20 @@
 echo "Building GoFins UI for production..."
 echo ""
 
-cd "$(dirname "$0")"
+# Get the script directory and navigate to project root
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 
-# Create bin directory if it doesn't exist
-mkdir -p bin
+# Navigate to gofins-ui directory
+cd "$PROJECT_ROOT/gofins-ui" || exit 1
 
 # Build the project
 npm run build
 
-# Copy built files to bin directory
+# Copy built files to development/bin directory
 echo "Copying built files to bin/..."
-cp -r dist/* bin/
+mkdir -p "$SCRIPT_DIR/bin"
+cp -r dist/* "$SCRIPT_DIR/bin/"
 
 echo ""
 echo "Build complete! Files are in the bin/ directory."
