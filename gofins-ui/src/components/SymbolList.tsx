@@ -190,7 +190,7 @@ export default function SymbolList({ endpoint, onOpenSymbol, defaultFavoritesOnl
     const matchedSymbols = symbols.filter(symbol => {
         // Text search - split into tokens and require ALL to match (AND logic)
         if (searchTerm) {
-            const tokens = searchTerm.toLowerCase().trim().split(/\s+/).filter(t => t.length > 0);
+            const tokens = searchTerm.toLowerCase().trim().split(/\s+/).filter((t: string) => t.length > 0);
             const searchableText = [
                 symbol.ticker.toLowerCase(),
                 symbol.name?.toLowerCase() || '',
@@ -199,7 +199,7 @@ export default function SymbolList({ endpoint, onOpenSymbol, defaultFavoritesOnl
             ].join(' ');
             
             // All tokens must be present
-            const allMatch = tokens.every(token => searchableText.includes(token));
+            const allMatch = tokens.every((token: string) => searchableText.includes(token));
             if (!allMatch) return false;
         }
 
