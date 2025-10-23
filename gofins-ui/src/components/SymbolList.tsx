@@ -144,6 +144,23 @@ export default function SymbolList({ endpoint, onOpenSymbol, defaultFavoritesOnl
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [endpoint]);
 
+    // Add keyboard shortcut for refresh
+    useEffect(() => {
+        const handleKeyDown = (event: KeyboardEvent) => {
+            const target = event.target as HTMLElement;
+            const isTyping = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT';
+            
+            if (!isTyping && event.key.toLowerCase() === 'r') {
+                event.preventDefault();
+                delete symbolCache[endpoint];
+                fetchSymbols();
+            }
+        };
+
+        document.addEventListener('keydown', handleKeyDown);
+        return () => document.removeEventListener('keydown', handleKeyDown);
+    }, [endpoint, fetchSymbols]);
+
     const formatYear = (dateStr: string | undefined) => {
         if (!dateStr) return 'N/A';
         return new Date(dateStr).getFullYear().toString();
