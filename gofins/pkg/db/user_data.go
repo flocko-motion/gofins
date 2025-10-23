@@ -10,18 +10,27 @@ import (
 )
 
 // CreateUser creates a new user with a UUID derived from their name
+// If this is the first user, they are made admin
 func CreateUser(name string) (*types.User, error) {
 	db := Db()
+
+	// Check if this is the first user
+	var userCount int
+	err := db.conn.QueryRow("SELECT COUNT(*) FROM users").Scan(&userCount)
+	if err != nil {
+		return nil, err
+	}
+	isAdmin := userCount == 0
 
 	// Generate stable UUID from username (hash-based)
 	userID := f.StringToUUID(name)
 
 	var user types.User
-	err := db.conn.QueryRow(`
-		INSERT INTO users (id, name, created_at)
-		VALUES ($1, $2, NOW())
+	err = db.conn.QueryRow(`
+		INSERT INTO users (id, name, created_at, is_admin)
+		VALUES ($1, $2, NOW(), $3)
 		RETURNING id, name, created_at
-	`, userID, name).Scan(&user.ID, &user.Name, &user.CreatedAt)
+	`, userID, name, isAdmin).Scan(&user.ID, &user.Name, &user.CreatedAt)
 
 	if err != nil {
 		return nil, err

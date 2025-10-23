@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/flocko-motion/gofins/pkg/config"
+	"github.com/flocko-motion/gofins/pkg/db"
 	"github.com/flocko-motion/gofins/pkg/f"
 	"github.com/google/uuid"
 )
@@ -34,11 +35,23 @@ func (s *Server) userMiddleware(next http.Handler) http.Handler {
 			}
 		}
 
-		// 4. Convert username to UUID
-		userID := f.StringToUUID(username)
+		// 4. Get or create user (auto-creates on first access)
+		user, err := db.GetUser(username)
+		if err != nil {
+			http.Error(w, "Failed to get user: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if user == nil {
+			// User doesn't exist, create them
+			user, err = db.CreateUser(username)
+			if err != nil {
+				http.Error(w, "Failed to create user: "+err.Error(), http.StatusInternalServerError)
+				return
+			}
+		}
 
-		// 5. Store in context
-		ctx := context.WithValue(r.Context(), userIDKey, userID)
+		// 5. Store user ID in context
+		ctx := context.WithValue(r.Context(), userIDKey, user.ID)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
