@@ -37,8 +37,14 @@ cd development
 cd ../gofins
 go run . server      # Start API on :8080
 cd ../gofins-ui
+npm install          # First time only
 npm run dev          # Start UI on :5173
 ```
+
+**UI Development Notes:**
+- UI runs on http://localhost:5173
+- Connects to API at http://localhost:8080 by default
+- See "UI API Configuration" below for connecting to remote backends
 
 ### Production Deployment
 
@@ -117,6 +123,65 @@ sudo htpasswd -D .htpasswd username
 # Optionally delete user data:
 docker exec -it gofins-db psql -U gofins -d gofins -c "DELETE FROM users WHERE username = 'username';"
 ```
+
+## UI API Configuration
+
+The UI can connect to different API backends without rebuilding. Configure in order of priority:
+
+### 1. Browser Console (Runtime)
+Change API URL on-the-fly without rebuilding:
+
+```javascript
+// Switch to production backend
+localStorage.setItem('apiUrl', 'https://omnitopos.net/gofins/api')
+
+// Set HTTP Basic Auth credentials (if required)
+localStorage.setItem('apiAuth', btoa('username:password'))
+
+location.reload()
+
+// Switch back to localhost
+localStorage.removeItem('apiUrl')
+localStorage.removeItem('apiAuth')
+location.reload()
+```
+
+### 2. Environment Variable
+Create `gofins-ui/.env.local`:
+```bash
+VITE_API_URL=https://your-domain.com/api
+```
+
+### 3. Default
+- Development: `http://localhost:8080/api`
+- Production: relative `/api` path
+
+## Debugging
+
+### FMP API Request Logging
+
+Enable verbose logging to see timing for every FMP API request:
+
+```bash
+# Enable verbose logging (shows every request with timing)
+curl -X POST http://localhost:7702/api/debug/fmp-verbose/true
+
+# Disable verbose logging
+curl -X POST http://localhost:7702/api/debug/fmp-verbose/false
+```
+
+When enabled, logs will show:
+```
+📊 v3/historical-price-full/AAPL → 0.523s (status 200)
+📊 v3/historical-price-full/MSFT → 0.487s (status 200)
+⚠️  SLOW request to v3/profile/GOOGL took 3.21s (status 200)
+```
+
+Useful for diagnosing:
+- Slow API responses
+- Network issues
+- Rate limiting problems
+- Performance bottlenecks
 
 ## Useful Commands
 
