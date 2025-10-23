@@ -429,6 +429,30 @@ func ResetProfileTimestamps() (int64, error) {
 	return result.RowsAffected()
 }
 
+// ResetSymbol resets price and profile timestamps for a single symbol
+func ResetSymbol(ticker string) error {
+	db := Db()
+	result, err := db.conn.Exec(`
+		UPDATE symbols 
+		SET last_price_update = NULL, last_price_status = NULL,
+		    last_profile_update = NULL, last_profile_status = NULL
+		WHERE ticker = $1
+	`, ticker)
+	if err != nil {
+		return err
+	}
+	
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return fmt.Errorf("symbol %s not found", ticker)
+	}
+	
+	return nil
+}
+
 // GetSymbolsByStatus returns all symbols with a specific status
 // statusType should be "profile" or "price"
 func GetSymbolsByStatus(status string, statusType string) ([]types.Symbol, error) {

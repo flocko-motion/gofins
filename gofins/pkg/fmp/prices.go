@@ -56,6 +56,7 @@ func FetchForexHistory(symbol string) ([]ForexData, error) {
 	var forexData []ForexData
 	params := map[string]string{
 		"symbol": symbol,
+		"from":   "1900-01-01",
 	}
 
 	// Use the light endpoint for forex historical data

@@ -14,4 +14,5 @@ func init() {
 	Cmd.AddCommand(profilesCmd)
 	Cmd.AddCommand(indicesCmd)
 	Cmd.AddCommand(quotesCmd)
+	Cmd.AddCommand(symbolCmd)
 }

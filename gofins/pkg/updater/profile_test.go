@@ -8,7 +8,7 @@ import (
 )
 
 func TestUpdateProfileLight(t *testing.T) {
-	ticker := "QAMC.QA" // put ticker to debug here
+	ticker := "000004.SZ" // put ticker to debug here
 
 	logger := NewLoggerTest("profile")
 

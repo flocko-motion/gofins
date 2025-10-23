@@ -28,7 +28,7 @@ func TestUpdatePrices(t *testing.T) {
 }
 
 func TestFetchPrices(t *testing.T) {
-	ticker := "NOVO-B.CO"
+	ticker := "000004.SZ"
 
 	// Call updatePrices - uses db.Db() singleton internally
 	log := NewLoggerTest("FetchTest")
