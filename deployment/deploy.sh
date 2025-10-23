@@ -44,7 +44,9 @@ cd deployment
 docker compose build --build-arg GIT_HASH=$GIT_HASH
 
 echo "=== Restarting gofins service ==="
+echo "Reloading systemd daemon to pick up any service file changes..."
 sudo systemctl daemon-reload
+echo "Restarting service (this will gracefully stop PostgreSQL)..."
 sudo systemctl restart gofins
 
 echo "=== Waiting for services to start ==="
