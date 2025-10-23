@@ -1,7 +1,26 @@
-// API base URL: localhost:8080 in dev, relative path in production
-const API_BASE_URL = import.meta.env.DEV 
-    ? 'http://localhost:8080/api'
-    : 'api';
+// API base URL: configurable via VITE_API_URL env var, localStorage override, or defaults
+// You can override in browser console: 
+//   localStorage.setItem('apiUrl', 'https://your-domain.com/api')
+//   localStorage.setItem('apiAuth', btoa('username:password'))  // for HTTP Basic Auth
+const getApiBaseUrl = () => {
+    const localStorageUrl = localStorage.getItem('apiUrl');
+    if (localStorageUrl) return localStorageUrl;
+    
+    if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
+    
+    return import.meta.env.DEV ? 'http://localhost:8080/api' : 'api';
+};
+
+const API_BASE_URL = getApiBaseUrl();
+
+// Get HTTP Basic Auth credentials from localStorage if set
+const getAuthHeader = (): HeadersInit => {
+    const auth = localStorage.getItem('apiAuth');
+    if (auth) {
+        return { 'Authorization': `Basic ${auth}` };
+    }
+    return {};
+};
 
 // Helper to build API URLs consistently (internal use only)
 const apiUrl = (endpoint: string): string => {
@@ -20,7 +39,14 @@ export async function apiCall<T>(
     endpoint: string,
     options?: RequestInit
 ): Promise<T> {
-    const response = await fetch(apiUrl(endpoint), options);
+    // Merge auth headers with any provided headers
+    const authHeaders = getAuthHeader();
+    const headers = { ...authHeaders, ...options?.headers };
+    
+    const response = await fetch(apiUrl(endpoint), {
+        ...options,
+        headers,
+    });
 
     if (!response.ok) {
         throw new Error(`API error: ${response.status} ${response.statusText}`);

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { api, imageUrl, favorites, ratings, type SymbolProfile, type UserRating } from '../services/api';
+import { symbolStore } from '../services/symbolStore';
 import PriceTable from './PriceTable';
 import SymbolProfileView from './SymbolProfile';
 import RatingSection from './RatingSection';
@@ -87,8 +88,9 @@ export default function SymbolDetail({ symbol, analysisId, onClose }: SymbolDeta
             // Refresh rating history
             const data = await ratings.getHistory(symbol);
             setRatingHistory(data || []);
-            // Clear symbol list cache to force refresh when user returns to stocks tab
-            sessionStorage.setItem('symbolCacheInvalidated', Date.now().toString());
+            // Update global store - all components will see the change
+            const latestRating = data && data.length > 0 ? data[0].rating : undefined;
+            symbolStore.updateFields(symbol, { userRating: latestRating });
         } catch (err) {
             alert('Error deleting rating');
         }
@@ -110,8 +112,8 @@ export default function SymbolDetail({ symbol, analysisId, onClose }: SymbolDeta
             setNotes('');
             const textarea = document.querySelector('textarea[placeholder*="Optional notes"]') as HTMLTextAreaElement;
             if (textarea) textarea.blur();
-            // Clear symbol list cache to force refresh when user returns to stocks tab
-            sessionStorage.setItem('symbolCacheInvalidated', Date.now().toString());
+            // Update global store - all components will see the change
+            symbolStore.updateFields(symbol, { userRating: rating });
         } catch (err) {
             alert('Error submitting rating');
         } finally {

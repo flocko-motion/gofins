@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { ChevronDownIcon, ChevronUpIcon } from '@heroicons/react/24/outline';
 import { api, favorites, type Symbol } from '../services/api';
+import { symbolStore } from '../services/symbolStore';
+import { useSymbols } from '../hooks/useSymbolMetadata';
 
 interface SymbolListProps {
     endpoint: string;
@@ -8,13 +10,14 @@ interface SymbolListProps {
     defaultFavoritesOnly?: boolean;
 }
 
-// Cache for symbol lists by endpoint
-const symbolCache: Record<string, Symbol[]> = {};
+// Cache for ticker lists by endpoint (actual symbol data is in global store)
+const tickerCache: Record<string, string[]> = {};
 // Track ongoing fetches to prevent duplicates
 const fetchingCache: Record<string, boolean> = {};
 
 export default function SymbolList({ endpoint, onOpenSymbol, defaultFavoritesOnly = false }: SymbolListProps) {
-    const [symbols, setSymbols] = useState<Symbol[]>([]);
+    const [tickers, setTickers] = useState<string[]>([]);
+    const symbols = useSymbols(tickers);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     // Load filters from sessionStorage or use defaults (per endpoint)
@@ -61,12 +64,10 @@ export default function SymbolList({ endpoint, onOpenSymbol, defaultFavoritesOnl
         e.stopPropagation();
         try {
             const data = await favorites.toggle(ticker);
-            setSymbols(prev => prev.map(s => s.ticker === ticker ? { ...s, isFavorite: data.isFavorite } : s));
-            if (symbolCache[endpoint]) {
-                symbolCache[endpoint] = symbolCache[endpoint].map(s => s.ticker === ticker ? { ...s, isFavorite: data.isFavorite } : s);
-            }
-            // Invalidate favorites cache since the list changed
-            delete symbolCache['symbols/favorites'];
+            // Update global store - all components will see the change
+            symbolStore.updateFields(ticker, { isFavorite: data.isFavorite });
+            // Invalidate favorites ticker cache since the list changed
+            delete tickerCache['symbols/favorites'];
         } catch (err) {
             console.error('Failed to toggle favorite:', err);
         }
@@ -97,10 +98,13 @@ export default function SymbolList({ endpoint, onOpenSymbol, defaultFavoritesOnl
             const data = await api.get<{ symbols: Symbol[] }>(endpoint);
             const fetchedSymbols = data.symbols || [];
 
-            // Cache the results
-            symbolCache[endpoint] = fetchedSymbols;
-            // Create new array reference to force re-render
-            setSymbols([...fetchedSymbols]);
+            // Update global symbol store with all symbol data
+            symbolStore.bulkUpdate(fetchedSymbols);
+            
+            // Cache only the ticker list locally
+            const fetchedTickers = fetchedSymbols.map(s => s.ticker);
+            tickerCache[endpoint] = fetchedTickers;
+            setTickers(fetchedTickers);
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Unknown error');
         } finally {
@@ -115,13 +119,13 @@ export default function SymbolList({ endpoint, onOpenSymbol, defaultFavoritesOnl
         const invalidated = sessionStorage.getItem('symbolCacheInvalidated');
         if (invalidated) {
             console.log('Cache invalidated, clearing...');
-            delete symbolCache[endpoint];
+            delete tickerCache[endpoint];
             sessionStorage.removeItem('symbolCacheInvalidated');
         }
 
         // Check cache first
-        if (symbolCache[endpoint]) {
-            setSymbols(symbolCache[endpoint]);
+        if (tickerCache[endpoint]) {
+            setTickers(tickerCache[endpoint]);
             setLoading(false);
         } else if (!fetchingCache[endpoint]) {
             fetchSymbols();
@@ -133,10 +137,10 @@ export default function SymbolList({ endpoint, onOpenSymbol, defaultFavoritesOnl
         // Listen for rating changes and refresh data
         const handleRatingsChanged = async () => {
             console.log('ratingsChanged event received, refreshing symbols...');
-            delete symbolCache[endpoint];
+            delete tickerCache[endpoint];
             delete fetchingCache[endpoint];
             await fetchSymbols();
-            console.log('Symbols refreshed, new count:', symbols.length);
+            console.log('Symbols refreshed, new count:', tickers.length);
         };
 
         window.addEventListener('ratingsChanged', handleRatingsChanged);
@@ -152,7 +156,7 @@ export default function SymbolList({ endpoint, onOpenSymbol, defaultFavoritesOnl
             
             if (!isTyping && event.key.toLowerCase() === 'r') {
                 event.preventDefault();
-                delete symbolCache[endpoint];
+                delete tickerCache[endpoint];
                 fetchSymbols();
             }
         };
@@ -184,14 +188,19 @@ export default function SymbolList({ endpoint, onOpenSymbol, defaultFavoritesOnl
 
     // Filter symbols based on all criteria
     const matchedSymbols = symbols.filter(symbol => {
-        // Text search
+        // Text search - split into tokens and require ALL to match (AND logic)
         if (searchTerm) {
-            const search = searchTerm.toLowerCase();
-            const matches = symbol.ticker.toLowerCase().includes(search) ||
-                symbol.name?.toLowerCase().includes(search) ||
-                symbol.sector?.toLowerCase().includes(search) ||
-                symbol.country?.toLowerCase().includes(search);
-            if (!matches) return false;
+            const tokens = searchTerm.toLowerCase().trim().split(/\s+/).filter(t => t.length > 0);
+            const searchableText = [
+                symbol.ticker.toLowerCase(),
+                symbol.name?.toLowerCase() || '',
+                symbol.sector?.toLowerCase() || '',
+                symbol.country?.toLowerCase() || ''
+            ].join(' ');
+            
+            // All tokens must be present
+            const allMatch = tokens.every(token => searchableText.includes(token));
+            if (!allMatch) return false;
         }
 
         // Exchange filter
@@ -326,7 +335,7 @@ export default function SymbolList({ endpoint, onOpenSymbol, defaultFavoritesOnl
                 <div className="flex items-center justify-between mb-3">
                     <button
                         onClick={() => {
-                            delete symbolCache[endpoint];
+                            delete tickerCache[endpoint];
                             fetchSymbols();
                         }}
                         className="px-3 py-1 text-sm bg-blue-100 hover:bg-blue-200 text-blue-700 rounded transition"
