@@ -22,14 +22,19 @@ var listCmd = &cobra.Command{
 		}
 		
 		fmt.Printf("Users (%d):\n\n", len(users))
-		fmt.Printf("%-20s %-36s %s\n", "NAME", "ID", "CREATED")
+		fmt.Printf("%-20s %-36s %-19s %s\n", "NAME", "ID", "CREATED", "ADMIN")
 		fmt.Println("--------------------------------------------------------------------------------")
 		
 		for _, user := range users {
-			fmt.Printf("%-20s %-36s %s\n",
+			adminStr := "no"
+			if user.IsAdmin {
+				adminStr = "yes"
+			}
+			fmt.Printf("%-20s %-36s %-19s %s\n",
 				user.Name,
 				user.ID.String(),
-				user.CreatedAt.Format("2006-01-02 15:04:05"))
+				user.CreatedAt.Format("2006-01-02 15:04:05"),
+				adminStr)
 		}
 		
 		return nil

@@ -146,6 +146,47 @@ func DeleteUser(name string) error {
 	return tx.Commit()
 }
 
+// UpdateUserAdmin updates the admin status of a user by name or UUID
+func UpdateUserAdmin(nameOrID string, isAdmin bool) (*types.User, error) {
+	db := Db()
+
+	// Try to parse as UUID first
+	userID, err := uuid.Parse(nameOrID)
+	var user *types.User
+	
+	if err == nil {
+		// It's a valid UUID, get by ID
+		user, err = GetUserByID(userID)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		// Not a UUID, treat as name
+		user, err = GetUser(nameOrID)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if user == nil {
+		return nil, sql.ErrNoRows
+	}
+
+	// Update admin status
+	err = db.conn.QueryRow(`
+		UPDATE users
+		SET is_admin = $1
+		WHERE id = $2
+		RETURNING id, name, created_at, is_admin
+	`, isAdmin, user.ID).Scan(&user.ID, &user.Name, &user.CreatedAt, &user.IsAdmin)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return user, nil
+}
+
 // UserRating represents a rating given to a symbol
 type UserRating struct {
 	ID        int       `json:"id"`
