@@ -1,4 +1,46 @@
-# React + TypeScript + Vite
+# Gofins UI
+
+Stock screener web interface built with React + TypeScript + Vite.
+
+## Development
+
+```bash
+npm install
+npm run dev
+```
+
+The UI will start on http://localhost:5173 and connect to the API at http://localhost:8080 by default.
+
+### API Configuration
+
+You can configure the API backend URL in three ways (in order of priority):
+
+1. **Browser Console (Runtime)** - Change API URL without rebuilding:
+   ```javascript
+   // Switch to production backend
+   localStorage.setItem('apiUrl', 'https://omnitopos.net/gofins/api')
+   
+   // Set HTTP Basic Auth credentials (if required)
+   localStorage.setItem('apiAuth', btoa('username:password'))
+   
+   location.reload()
+   
+   // Switch back to localhost
+   localStorage.removeItem('apiUrl')
+   localStorage.removeItem('apiAuth')
+   location.reload()
+   ```
+
+2. **Environment Variable** - Create `.env.local`:
+   ```bash
+   VITE_API_URL=https://gofins.flocko.net/api
+   ```
+
+3. **Default** - Uses `http://localhost:8080/api` in development, relative `/api` in production.
+
+---
+
+## Original Vite Template Info
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
