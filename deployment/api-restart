@@ -1,0 +1,20 @@
+#!/bin/bash
+
+# Quick restart of just the API container
+# Useful for testing code changes without restarting the database
+
+cd /opt/gofins/deployment
+
+echo "=== Restarting API container ==="
+docker compose restart api
+
+echo ""
+echo "=== Waiting for API to start ==="
+sleep 2
+
+echo ""
+echo "=== API logs (last 10 lines) ==="
+docker logs --tail 10 gofins-api
+
+echo ""
+echo "✓ API restarted"

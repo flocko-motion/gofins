@@ -1,0 +1,73 @@
+#!/bin/bash
+
+# Script to list existing tags and create a new one
+
+cd /opt/gofins
+
+echo "=== Existing Tags ==="
+git tag -l --sort=-version:refname | head -20
+
+echo ""
+echo "=== Latest Commits ==="
+git log --oneline -5
+
+echo ""
+read -p "Enter new tag name (e.g., v1.0.1) or press Enter to cancel: " TAG_NAME
+
+if [ -z "$TAG_NAME" ]; then
+    echo "Cancelled."
+    exit 0
+fi
+
+# Validate tag format (optional - basic check for v prefix)
+if [[ ! "$TAG_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    echo "Warning: Tag doesn't follow semantic versioning (v1.2.3)"
+    read -p "Continue anyway? (y/N): " CONFIRM
+    if [[ ! "$CONFIRM" =~ ^[Yy]$ ]]; then
+        echo "Cancelled."
+        exit 0
+    fi
+fi
+
+# Check if tag already exists
+if git rev-parse "$TAG_NAME" >/dev/null 2>&1; then
+    echo "Error: Tag $TAG_NAME already exists!"
+    exit 1
+fi
+
+# Get tag message
+read -p "Enter tag message (or press Enter for default): " TAG_MESSAGE
+if [ -z "$TAG_MESSAGE" ]; then
+    TAG_MESSAGE="Release $TAG_NAME"
+fi
+
+# Create annotated tag
+echo ""
+echo "Creating tag: $TAG_NAME"
+git tag -a "$TAG_NAME" -m "$TAG_MESSAGE"
+
+if [ $? -ne 0 ]; then
+    echo "Error: Failed to create tag"
+    exit 1
+fi
+
+echo "✓ Tag created locally"
+
+# Push tag
+read -p "Push tag to remote? (Y/n): " PUSH_CONFIRM
+if [[ ! "$PUSH_CONFIRM" =~ ^[Nn]$ ]]; then
+    echo "Pushing tag to origin..."
+    git push origin "$TAG_NAME"
+    
+    if [ $? -eq 0 ]; then
+        echo "✓ Tag pushed to remote"
+        echo ""
+        echo "Tag $TAG_NAME created and pushed successfully!"
+    else
+        echo "Error: Failed to push tag"
+        exit 1
+    fi
+else
+    echo "Tag created locally but not pushed."
+    echo "To push later, run: git push origin $TAG_NAME"
+fi
