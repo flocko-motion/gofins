@@ -23,6 +23,19 @@ import (
 
 var logger = log.New("FMP")
 
+// Global flag for verbose request logging
+var verboseLogging = false
+
+// EnableVerboseLogging turns on detailed timing logs for every request
+func EnableVerboseLogging(enabled bool) {
+	verboseLogging = enabled
+	if enabled {
+		logger.Printf("🔍 Verbose request logging ENABLED\n")
+	} else {
+		logger.Printf("🔍 Verbose request logging DISABLED\n")
+	}
+}
+
 func init() {
 	// Clean up cache files older than 7 days at startup
 	cleanupOldCache()
@@ -192,13 +205,26 @@ func (c *Client) apiGet(endpoint string, params map[string]string, result interf
 		}
 
 		// Make the request
+		requestStart := time.Now()
 		resp, err := c.httpClient.Get(reqURL)
+		requestDuration := time.Since(requestStart)
+		
 		if err != nil {
-			logger.Printf("Network error (attempt %d/%d): %v\n", attempt+1, MaxRetries, err)
+			logger.Printf("Network error (attempt %d/%d) after %.2fs: %v\n", attempt+1, MaxRetries, requestDuration.Seconds(), err)
 			lastErr = err
 			delay := BaseRetryDelay * time.Duration(1<<uint(attempt))
 			time.Sleep(delay)
 			continue
+		}
+		
+		// Verbose logging: log every request
+		if verboseLogging {
+			logger.Printf("📊 %s → %.3fs (status %d)\n", endpoint, requestDuration.Seconds(), resp.StatusCode)
+		}
+		
+		// Always log slow requests
+		if requestDuration > 2*time.Second {
+			logger.Printf("⚠️  SLOW request to %s took %.2fs (status %d)\n", endpoint, requestDuration.Seconds(), resp.StatusCode)
 		}
 
 		// Handle response
