@@ -4,7 +4,6 @@ import { api, favorites, type Symbol } from '../services/api';
 
 interface SymbolListProps {
     endpoint: string;
-    description: string;
     onOpenSymbol?: (symbol: string) => void;
     defaultFavoritesOnly?: boolean;
 }
@@ -14,7 +13,7 @@ const symbolCache: Record<string, Symbol[]> = {};
 // Track ongoing fetches to prevent duplicates
 const fetchingCache: Record<string, boolean> = {};
 
-export default function SymbolList({ endpoint, description, onOpenSymbol, defaultFavoritesOnly = false }: SymbolListProps) {
+export default function SymbolList({ endpoint, onOpenSymbol, defaultFavoritesOnly = false }: SymbolListProps) {
     const [symbols, setSymbols] = useState<Symbol[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -308,7 +307,15 @@ export default function SymbolList({ endpoint, description, onOpenSymbol, defaul
         <div className="max-w-7xl mx-auto">
             <div className="mb-4">
                 <div className="flex items-center justify-between mb-3">
-                    <p className="text-gray-600 text-sm">{description}</p>
+                    <button
+                        onClick={() => {
+                            delete symbolCache[endpoint];
+                            fetchSymbols();
+                        }}
+                        className="px-3 py-1 text-sm bg-blue-100 hover:bg-blue-200 text-blue-700 rounded transition"
+                    >
+                        [R]efresh
+                    </button>
                     <button
                         onClick={() => setFiltersExpanded(!filtersExpanded)}
                         className="flex items-center gap-1 px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 rounded transition"

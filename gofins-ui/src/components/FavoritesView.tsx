@@ -8,7 +8,6 @@ export default function FavoritesView({ onOpenSymbol }: FavoritesViewProps) {
     return (
         <SymbolList 
             endpoint="symbols/favorites"
-            description=""
             onOpenSymbol={onOpenSymbol}
         />
     );
