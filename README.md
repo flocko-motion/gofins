@@ -29,7 +29,8 @@ All user data (ratings, favorites, notes, analyses) scoped per user.
 
 ## Quick Start
 
-**Development**:
+### Development
+
 ```bash
 cd development
 ./run_db.sh          # Start PostgreSQL
@@ -39,14 +40,115 @@ cd ../gofins-ui
 npm run dev          # Start UI on :5173
 ```
 
-**Deployment**:
+### Production Deployment
+
+**Prerequisites**:
 ```bash
-cd deployment
-cp .env.example .env  # Set DB_PASSWORD
-./deploy.sh           # Build & start Docker containers
+# Install Docker (official method)
+sudo apt update
+sudo apt install -y ca-certificates curl
+sudo install -m 0755 -d /etc/apt/keyrings
+sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+sudo chmod a+r /etc/apt/keyrings/docker.asc
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+sudo apt update
+sudo apt install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+
+# Enable Apache modules
+sudo a2enmod proxy proxy_http headers rewrite
+sudo systemctl restart apache2
 ```
 
-## Database
+**First-Time Setup**:
+```bash
+# 1. Clone repo
+cd /opt
+sudo git clone https://github.com/flocko-motion/gofins.git
+sudo chown -R $(whoami):$(whoami) gofins
+
+# 2. Configure environment
+cd /opt/gofins/deployment
+cp .env.example .env
+sed -i "s/DB_PASSWORD=.*/DB_PASSWORD=$(openssl rand -base64 32)/" .env
+
+# 3. Configure Apache
+cp apache-gofins.conf.example apache-gofins.conf
+sed -i 's/yourdomain.com/<youractualdomain.whatever>/g' apache-gofins.conf
+
+# 4. Create user(s)
+sudo htpasswd -c .htpasswd yourusername
+sudo htpasswd .htpasswd friend1  # Add more users
+
+# 5. Deploy (handles Apache, systemd, Docker automatically)
+sudo bash deploy.sh
+```
+
+**Updates**:
+```bash
+sudo /opt/gofins/deployment/deploy.sh
+```
+
+## User Management
+
+**Automatic User Creation**: Users are created automatically when they first access the application.
+
+### How it works:
+1. Apache's `.htaccess` authentication prompts for username/password
+2. On successful authentication, Apache sets the `X-Remote-User` header with the username
+3. The Go backend receives this header and automatically creates a user record in the database if it doesn't exist
+4. **The first user to access the system becomes the admin** (has access to the Errors tab and other admin features)
+5. All subsequent users are regular users with access to their own data only
+
+### User Isolation:
+- Each user's ratings, favorites, notes, and analyses are completely isolated
+- Users cannot see or access other users' data
+- The admin user can see system errors but not other users' personal data
+
+### Adding New Users:
+```bash
+cd /opt/gofins/deployment
+sudo htpasswd .htpasswd newusername
+# User will be created in database on first login
+```
+
+### Removing Users:
+```bash
+sudo htpasswd -D .htpasswd username
+# Optionally delete user data:
+docker exec -it gofins-db psql -U gofins -d gofins -c "DELETE FROM users WHERE username = 'username';"
+```
+
+## Useful Commands
+
+```bash
+# Check status
+sudo systemctl status gofins
+docker ps
+
+# View logs
+docker logs -f gofins-api
+docker logs -f gofins-ui
+docker logs -f gofins-db
+sudo tail -f /var/log/apache2/gofins-error.log
+
+# Restart services
+sudo systemctl restart gofins
+docker-compose restart
+
+# Stop everything
+sudo systemctl stop gofins
+```
+
+## Ports
+
+- **7701** - PostgreSQL (localhost only)
+- **7702** - Go API (localhost only)
+- **7703** - UI nginx (localhost only)
+- **80** - Apache (public, proxies to containers)
+
+## Database & CLI Commands
+
+### Development
 Use gofins binary to interact with the database. In gofins/ directory:
 
 ```bash
@@ -55,7 +157,37 @@ go run . db schema
 
 # Execute SQL
 go run . db sql -q "SELECT COUNT(*) FROM symbols"
+
+# Update quotes
+go run . update quotes
+
+# Fetch profiles
+go run . fetch profiles --limit 100
 ```
+
+### Production
+Use the wrapper script to run commands inside the Docker container:
+
+```bash
+cd /opt/gofins/deployment
+
+# View schema
+./gofins db schema
+
+# Execute SQL
+./gofins db sql -q "SELECT COUNT(*) FROM symbols"
+
+# Update quotes
+./gofins update quotes
+
+# Fetch profiles
+./gofins fetch profiles --limit 100
+
+# View all available commands
+./gofins --help
+```
+
+The wrapper script automatically executes commands inside the running `gofins-api` container.
 
 ## License
 

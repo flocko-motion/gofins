@@ -76,7 +76,7 @@ export default function NotesView({ onOpenSymbol }: NotesViewProps) {
 
     // Sort notes within each ticker chronologically (oldest first) to show opinion evolution
     Object.keys(groupedNotes).forEach(ticker => {
-        groupedNotes[ticker].sort((a, b) => 
+        groupedNotes[ticker].sort((a, b) =>
             new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
         );
     });
@@ -91,14 +91,6 @@ export default function NotesView({ onOpenSymbol }: NotesViewProps) {
 
     return (
         <div className="bg-white rounded-lg shadow p-6">
-            <div className="flex items-center gap-3 mb-6">
-                <DocumentTextIcon className="w-6 h-6 text-blue-500" />
-                <h2 className="text-2xl font-bold text-gray-900">Recent Notes</h2>
-                <span className="text-sm text-gray-500">
-                    ({sortedTickers.length} {sortedTickers.length === 1 ? 'stock' : 'stocks'}, {notes.length} {notes.length === 1 ? 'note' : 'notes'})
-                </span>
-            </div>
-
             {error && (
                 <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
                     {error}
@@ -116,7 +108,7 @@ export default function NotesView({ onOpenSymbol }: NotesViewProps) {
                     {sortedTickers.map((ticker) => {
                         const tickerNotes = groupedNotes[ticker];
                         const latestNote = tickerNotes[tickerNotes.length - 1]; // Last note is latest (oldest→newest sort)
-                        
+
                         // Determine border color based on rating
                         const getBorderColor = (rating: number) => {
                             if (rating >= 4) return 'border-t-green-500';
@@ -127,7 +119,7 @@ export default function NotesView({ onOpenSymbol }: NotesViewProps) {
                             if (rating >= -3) return 'border-t-red-400';
                             return 'border-t-red-500';
                         };
-                        
+
                         return (
                             <div
                                 key={ticker}
@@ -166,13 +158,13 @@ export default function NotesView({ onOpenSymbol }: NotesViewProps) {
                                         {new Date(latestNote.createdAt).toISOString().split('T')[0]}
                                     </span>
                                 </div>
-                                
+
                                 <div className="space-y-3 pl-4 border-l-4 border-gray-200">
                                     {tickerNotes.map((note, index) => {
                                         const prevNote = index > 0 ? tickerNotes[index - 1] : null;
                                         const ratingChanged = prevNote && prevNote.rating !== note.rating;
                                         const ratingIncreased = prevNote && note.rating > prevNote.rating;
-                                        
+
                                         return (
                                             <div key={note.id} className="relative">
                                                 <div className="flex items-start justify-between mb-1">

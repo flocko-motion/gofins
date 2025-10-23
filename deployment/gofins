@@ -1,0 +1,31 @@
+#!/bin/bash
+
+# Wrapper script to run gofins CLI commands inside the Docker container
+# Usage: ./gofins <command> [args...]
+# Examples:
+#   ./gofins db schema
+#   ./gofins db sql -q "SELECT COUNT(*) FROM symbols"
+#   ./gofins update quotes
+
+set -e
+
+# Check if running from deployment directory
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+cd "$SCRIPT_DIR"
+
+# Check if docker-compose is available
+if ! command -v docker &> /dev/null; then
+    echo "Error: Docker is not installed or not in PATH"
+    exit 1
+fi
+
+# Check if gofins-api container is running
+if ! docker ps --format '{{.Names}}' | grep -q '^gofins-api$'; then
+    echo "Error: gofins-api container is not running"
+    echo "Start it with: sudo systemctl start gofins"
+    exit 1
+fi
+
+# Execute the command inside the running container
+# Pass all arguments to the gofins binary
+docker exec -it gofins-api /app/gofins "$@"

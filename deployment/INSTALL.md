@@ -51,6 +51,40 @@ That's it! The deploy script will:
 - Build Docker images
 - Start all containers
 
+## User Management
+
+**Automatic User Creation**: Users are created automatically when they first access the application.
+
+### How it works:
+1. Apache's `.htaccess` authentication prompts for username/password
+2. On successful authentication, Apache sets the `X-Remote-User` header with the username
+3. The Go backend receives this header and automatically creates a user record in the database if it doesn't exist
+4. **The first user to access the system becomes the admin** (has access to the Errors tab and other admin features)
+5. All subsequent users are regular users with access to their own data only
+
+### User Isolation:
+- Each user's ratings, favorites, notes, and analyses are completely isolated
+- Users cannot see or access other users' data
+- The admin user can see system errors but not other users' personal data
+
+### Adding New Users:
+```bash
+# Add a new user to Apache authentication
+cd /opt/gofins/deployment
+sudo htpasswd .htpasswd newusername
+
+# That's it! The user will be created in the database on first login
+```
+
+### Removing Users:
+```bash
+# Remove from Apache authentication
+sudo htpasswd -D .htpasswd username
+
+# Optionally, delete user data from database
+docker exec -it gofins-db psql -U gofins -d gofins -c "DELETE FROM users WHERE username = 'username';"
+```
+
 ## Updates
 
 ```bash

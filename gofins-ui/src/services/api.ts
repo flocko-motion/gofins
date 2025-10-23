@@ -1,5 +1,5 @@
 // API base URL: localhost:8080 in dev, relative path in production
-const API_BASE_URL = import.meta.env.DEV 
+const API_BASE_URL = import.meta.env.DEV
     ? 'http://localhost:8080/api'
     : 'api';
 
@@ -21,30 +21,30 @@ export async function apiCall<T>(
     options?: RequestInit
 ): Promise<T> {
     const response = await fetch(apiUrl(endpoint), options);
-    
+
     if (!response.ok) {
         throw new Error(`API error: ${response.status} ${response.statusText}`);
     }
-    
+
     return response.json();
 }
 
 // Convenience methods
 export const api = {
     get: <T>(endpoint: string) => apiCall<T>(endpoint),
-    
+
     post: <T>(endpoint: string, data?: any) => apiCall<T>(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: data ? JSON.stringify(data) : undefined,
     }),
-    
+
     put: <T>(endpoint: string, data?: any) => apiCall<T>(endpoint, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: data ? JSON.stringify(data) : undefined,
     }),
-    
+
     delete: <T>(endpoint: string) => apiCall<T>(endpoint, {
         method: 'DELETE',
     }),
@@ -183,7 +183,7 @@ export const favorites = {
 // Ratings API helpers
 export const ratings = {
     getHistory: (ticker: string) => api.get<UserRating[]>(`ratings/${ticker}/history`),
-    add: (ticker: string, rating: number, notes?: string) => 
+    add: (ticker: string, rating: number, notes?: string) =>
         api.post(`ratings/${ticker}`, { rating, notes: notes || undefined }),
     delete: (ratingId: number) => api.delete(`ratings/${ratingId}`),
 };

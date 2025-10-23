@@ -19,7 +19,7 @@ export default function AnalysesList({ onOpenAnalysis, onOpenCreate }: AnalysesL
 
     const fetchAnalyses = async () => {
         if (isFetching) return;
-        
+
         try {
             isFetching = true;
             setLoading(true);
@@ -102,7 +102,6 @@ export default function AnalysesList({ onOpenAnalysis, onOpenCreate }: AnalysesL
     return (
         <div className="max-w-7xl mx-auto">
             <div className="mb-6 flex items-center justify-between">
-                <p className="text-gray-600 text-sm">Browse and manage your stock screening analyses</p>
                 <button
                     onClick={onOpenCreate}
                     className="px-4 py-2 text-sm border border-gray-300 rounded bg-white hover:bg-gray-50 flex items-center gap-2"
