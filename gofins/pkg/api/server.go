@@ -67,9 +67,13 @@ func NewServer(database *db.DB, port int, devUser string) *Server {
 			// Analyses
 			r.Get("/analyses", s.handleAnalyses)
 			r.Post("/analyses", s.handleAnalyses)
-			r.Get("/analysis/{id}", s.handleAnalysisRouting)
-			r.Put("/analysis/{id}", s.handleAnalysisRouting)
-			r.Delete("/analysis/{id}", s.handleAnalysisRouting)
+			r.Get("/analysis/{id}", s.handleGetAnalysis)
+			r.Put("/analysis/{id}", s.handleUpdateAnalysis)
+			r.Delete("/analysis/{id}", s.handleDeleteAnalysis)
+			r.Get("/analysis/{id}/results", s.handleAnalysisResults)
+			r.Get("/analysis/{id}/profile/{ticker}", s.handleSymbolProfile)
+			r.Get("/analysis/{id}/chart/{ticker}", s.handleAnalysisChart)
+			r.Get("/analysis/{id}/histogram/{ticker}", s.handleAnalysisHistogram)
 
 			// Favorites
 			r.Get("/symbols/favorites", s.handleListFavoriteSymbols)
@@ -102,7 +106,7 @@ func corsMiddleware(next http.Handler) http.Handler {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-		
+
 		// Prevent caching of API responses
 		w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
 		w.Header().Set("Pragma", "no-cache")

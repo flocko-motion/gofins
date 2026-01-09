@@ -10,7 +10,24 @@
             "request": "launch",
             "mode": "auto",
             "program": "${workspaceFolder}/gofins",
-            "args": ["server", "--user", "flo"]
+            "args": [
+                "server",
+                "--user",
+                "flo"
+            ]
+        },
+        {
+            "name": "gofins server --no-updates",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/gofins",
+            "args": [
+                "server",
+                "--user",
+                "flo",
+                "--no-updates"
+            ]
         },
         {
             "name": "gofins-ui",

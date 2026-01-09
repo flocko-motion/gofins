@@ -2,7 +2,6 @@ package api
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"os"
 	"strings"
@@ -50,60 +49,14 @@ func (s *Server) handleListAnalyses(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(packages)
 }
 
-// handleAnalysisRouting routes requests to appropriate handlers
-func (s *Server) handleAnalysisRouting(w http.ResponseWriter, r *http.Request) {
-	path := strings.TrimPrefix(r.URL.Path, "/api/analysis/")
-
-	// Route to /results endpoint
-	if strings.Contains(path, "/results") {
-		s.handleAnalysisResults(w, r)
-		return
-	}
-
-	// Route to /profile endpoint
-	if strings.Contains(path, "/profile/") {
-		s.handleSymbolProfile(w, r)
-		return
-	}
-
-	if strings.Contains(path, fmt.Sprintf("/%s/", analysis.PlotTypeHistogram)) {
-		s.handleAnalysisChart(w, r, analysis.PlotTypeHistogram)
-		return
-	} else if strings.Contains(path, fmt.Sprintf("/%s/", analysis.PlotTypeChart)) {
-		s.handleAnalysisChart(w, r, analysis.PlotTypeChart)
-		return
-	}
-	// Default: handle package operations (GET/PUT/DELETE)
-	s.handleAnalysis(w, r)
-}
-
-// handleAnalysis handles REST operations on /api/analysis/{id}
-// GET    /api/analysis/{id} - Get single analysis
-// PUT    /api/analysis/{id} - Update analysis (rename)
-// DELETE /api/analysis/{id} - Delete analysis
-func (s *Server) handleAnalysis(w http.ResponseWriter, r *http.Request) {
-	// Extract ID from URL parameter
+// handleGetAnalysis retrieves a single analysis package
+// GET /api/analysis/{id}
+func (s *Server) handleGetAnalysis(w http.ResponseWriter, r *http.Request) {
 	packageID := chi.URLParam(r, "id")
-
 	if packageID == "" {
 		http.Error(w, "Package ID required", http.StatusBadRequest)
 		return
 	}
-
-	switch r.Method {
-	case http.MethodGet:
-		s.handleGetAnalysis(w, r, packageID)
-	case http.MethodPut:
-		s.handleUpdateAnalysis(w, r, packageID)
-	case http.MethodDelete:
-		s.handleDeleteAnalysis(w, r, packageID)
-	default:
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-	}
-}
-
-// handleGetAnalysis retrieves a single analysis package
-func (s *Server) handleGetAnalysis(w http.ResponseWriter, r *http.Request, packageID string) {
 	userID := getUserID(r)
 	pkg, err := analysis.GetPackage(userID, packageID)
 	if err != nil {
@@ -121,7 +74,13 @@ func (s *Server) handleGetAnalysis(w http.ResponseWriter, r *http.Request, packa
 }
 
 // handleUpdateAnalysis updates an analysis package (currently just name)
-func (s *Server) handleUpdateAnalysis(w http.ResponseWriter, r *http.Request, packageID string) {
+// PUT /api/analysis/{id}
+func (s *Server) handleUpdateAnalysis(w http.ResponseWriter, r *http.Request) {
+	packageID := chi.URLParam(r, "id")
+	if packageID == "" {
+		http.Error(w, "Package ID required", http.StatusBadRequest)
+		return
+	}
 	var req UpdateAnalysisRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
@@ -150,7 +109,13 @@ func (s *Server) handleUpdateAnalysis(w http.ResponseWriter, r *http.Request, pa
 }
 
 // handleDeleteAnalysis deletes an analysis package
-func (s *Server) handleDeleteAnalysis(w http.ResponseWriter, r *http.Request, packageID string) {
+// DELETE /api/analysis/{id}
+func (s *Server) handleDeleteAnalysis(w http.ResponseWriter, r *http.Request) {
+	packageID := chi.URLParam(r, "id")
+	if packageID == "" {
+		http.Error(w, "Package ID required", http.StatusBadRequest)
+		return
+	}
 	userID := getUserID(r)
 	err := analysis.DeletePackage(userID, packageID)
 	if err != nil {
@@ -164,11 +129,7 @@ func (s *Server) handleDeleteAnalysis(w http.ResponseWriter, r *http.Request, pa
 // handleAnalysisResults retrieves all results for an analysis package
 // GET /api/analysis/{id}/results
 func (s *Server) handleAnalysisResults(w http.ResponseWriter, r *http.Request) {
-	// Extract packageID from path
-	path := strings.TrimPrefix(r.URL.Path, "/api/analysis/")
-	path = strings.TrimSuffix(path, "/results")
-	packageID := strings.TrimSuffix(path, "/")
-
+	packageID := chi.URLParam(r, "id")
 	if packageID == "" {
 		http.Error(w, "Package ID required", http.StatusBadRequest)
 		return
@@ -192,23 +153,20 @@ func (s *Server) handleAnalysisResults(w http.ResponseWriter, r *http.Request) {
 
 // handleAnalysisChart serves PNG chart images
 // GET /api/analysis/{id}/chart/{ticker}
-func (s *Server) handleAnalysisChart(w http.ResponseWriter, r *http.Request, plotType analysis.PlotType) {
-	// Extract packageID and ticker from path
-	path := strings.TrimPrefix(r.URL.Path, "/api/analysis/")
-	parts := strings.Split(path, fmt.Sprintf("/%s/", plotType))
+func (s *Server) handleAnalysisChart(w http.ResponseWriter, r *http.Request) {
+	packageID := chi.URLParam(r, "id")
+	ticker := chi.URLParam(r, "ticker")
 
-	if len(parts) != 2 {
-		http.Error(w, "Invalid path format", http.StatusBadRequest)
+	if packageID == "" || ticker == "" {
+		http.Error(w, "Package ID and ticker required", http.StatusBadRequest)
 		return
 	}
 
-	packageID := parts[0]
-	ticker := strings.TrimSuffix(parts[1], "/")
 	packageID = strings.ReplaceAll(packageID, "..", "")
 	ticker = strings.ReplaceAll(ticker, "..", "")
 
 	// Construct chart path
-	chartPath := analysis.PathPlot(packageID, plotType, ticker)
+	chartPath := analysis.PathPlot(packageID, analysis.PlotTypeChart, ticker)
 
 	// Check if file exists
 	if _, err := os.Stat(chartPath); os.IsNotExist(err) {
@@ -221,20 +179,45 @@ func (s *Server) handleAnalysisChart(w http.ResponseWriter, r *http.Request, plo
 	http.ServeFile(w, r, chartPath)
 }
 
-// handleSymbolProfile retrieves profile information for a symbol
-// GET /api/analysis/{id}/profile/{ticker}
-func (s *Server) handleSymbolProfile(w http.ResponseWriter, r *http.Request) {
-	// Extract packageID and ticker from path
-	path := strings.TrimPrefix(r.URL.Path, "/api/analysis/")
-	parts := strings.Split(path, "/profile/")
+// handleAnalysisHistogram serves PNG histogram images
+// GET /api/analysis/{id}/histogram/{ticker}
+func (s *Server) handleAnalysisHistogram(w http.ResponseWriter, r *http.Request) {
+	packageID := chi.URLParam(r, "id")
+	ticker := chi.URLParam(r, "ticker")
 
-	if len(parts) != 2 {
-		http.Error(w, "Invalid path format", http.StatusBadRequest)
+	if packageID == "" || ticker == "" {
+		http.Error(w, "Package ID and ticker required", http.StatusBadRequest)
 		return
 	}
 
-	packageID := parts[0]
-	ticker := strings.TrimSuffix(parts[1], "/")
+	packageID = strings.ReplaceAll(packageID, "..", "")
+	ticker = strings.ReplaceAll(ticker, "..", "")
+
+	// Construct histogram path
+	histogramPath := analysis.PathPlot(packageID, analysis.PlotTypeHistogram, ticker)
+
+	// Check if file exists
+	if _, err := os.Stat(histogramPath); os.IsNotExist(err) {
+		http.Error(w, "Histogram not found", http.StatusNotFound)
+		return
+	}
+
+	// Serve the PNG file
+	w.Header().Set("Content-Type", "image/png")
+	http.ServeFile(w, r, histogramPath)
+}
+
+// handleSymbolProfile retrieves profile information for a symbol
+// GET /api/analysis/{id}/profile/{ticker}
+func (s *Server) handleSymbolProfile(w http.ResponseWriter, r *http.Request) {
+	packageID := chi.URLParam(r, "id")
+	ticker := chi.URLParam(r, "ticker")
+
+	if packageID == "" || ticker == "" {
+		http.Error(w, "Package ID and ticker required", http.StatusBadRequest)
+		return
+	}
+
 	packageID = strings.ReplaceAll(packageID, "..", "")
 	ticker = strings.ReplaceAll(ticker, "..", "")
 
