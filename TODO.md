@@ -5,6 +5,17 @@ Weekly prices show blocks of N/A YoY values during 2020-2021 period (e.g., AAPL 
 
 # TODO list for gofins, in order of priority
 
+## FMP
+
+We wasted too many FMP queries in the past - we need to be more conservative. One big update session per month should be enough.
+We should store all price data in original currency in a one column and store converted prices in another column. This allows us to 
+reconvert prices to current currency if needed without refetching data from FMP.
+
+All thresholds should be set for a single update per month. 
+
+We _might_ do a daily update of just the prices and that just for our watchlist. That would save us a lot of queries. Currency conversion should still be based on the latest monthly data
+to avoid fetching data from FMP too often.
+
 ## Journal / Notebook Feature
 
 **Concept**: Unified research journal mixing ratings and freeform notes

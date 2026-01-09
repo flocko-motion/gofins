@@ -54,7 +54,7 @@ export default function Layout() {
     // Filter tabs based on user permissions
     useEffect(() => {
         if (!user) return;
-        
+
         // Show errors tab only to admin
         const visibleTabs = allTabs.filter(tab => {
             if (tab.type === 'errors') {
@@ -62,7 +62,7 @@ export default function Layout() {
             }
             return true;
         });
-        
+
         setTabs(visibleTabs);
     }, [user, allTabs]);
 
@@ -160,11 +160,11 @@ export default function Layout() {
     const activeTab = tabs.find(tab => tab.id === activeTabId);
 
     return (
-        <div className="flex flex-col h-screen bg-gray-50 p-4">
+        <div className="flex flex-col h-screen bg-gray-50">
             {/* Header */}
-            <div className="bg-white border-b border-gray-300 shadow-md rounded-t-lg">
-                <div className="flex items-center justify-between">
-                    <div>
+            <div className="bg-white border-b border-gray-300 shadow-md">
+                <div className="flex items-center justify-between px-6 py-3">
+                    <div className="flex items-center gap-3">
                         <h1 className="text-3xl font-bold text-gray-900 tracking-tight">
                             FINS
                         </h1>
@@ -185,7 +185,7 @@ export default function Layout() {
             </div>
 
             {/* Tab Navigation */}
-            <div className="bg-white border-b border-gray-200 px-6">
+            <div className="bg-white border-b border-gray-200 px-6 shadow-sm">
                 <nav className="flex gap-2">
                     {tabs.map((tab) => {
                         const Icon = getTabIcon(tab.type);
@@ -218,7 +218,7 @@ export default function Layout() {
             </div>
 
             {/* Main Content */}
-            <div className="flex-1 mt-4 overflow-auto bg-gray-50">
+            <div className="flex-1 overflow-auto bg-gray-50 pt-4">
                 {activeTab && (
                     <TabContent
                         tabType={activeTab.type}
