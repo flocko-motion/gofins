@@ -18,7 +18,7 @@ func (s *Server) handleGetSymbol(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ticker = strings.TrimSpace(ticker)
-	symbol, err := db.GetSymbol(ticker)
+	symbol, err := db.GetSymbol(r.Context(), ticker)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

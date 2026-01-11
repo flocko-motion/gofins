@@ -222,7 +222,7 @@ func (s *Server) handleSymbolProfile(w http.ResponseWriter, r *http.Request) {
 	ticker = strings.ReplaceAll(ticker, "..", "")
 
 	// Get symbol profile from database
-	symbol, err := db.GetSymbol(ticker)
+	symbol, err := db.GetSymbol(r.Context(), ticker)
 	if err != nil {
 		http.Error(w, "Failed to get symbol profile: "+err.Error(), http.StatusInternalServerError)
 		return

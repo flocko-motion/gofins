@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"os"
@@ -8,9 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/flocko-motion/gofins/pkg/db"
-
 	"github.com/flocko-motion/gofins/pkg/analysis"
+	"github.com/flocko-motion/gofins/pkg/db"
 )
 
 // handleSymbolChart generates and serves PNG chart images for a symbol using full price history
@@ -31,7 +31,7 @@ func (s *Server) handleSymbolChart(w http.ResponseWriter, r *http.Request, plotT
 	ticker = strings.ReplaceAll(ticker, "/", "")
 
 	// Generate chart on-the-fly and serve directly
-	imageData, err := s.generateSymbolChart(ticker, plotType)
+	imageData, err := s.generateSymbolChart(r.Context(), ticker, plotType)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to generate chart: %v", err), http.StatusInternalServerError)
 		return
@@ -43,9 +43,9 @@ func (s *Server) handleSymbolChart(w http.ResponseWriter, r *http.Request, plotT
 	w.Write(imageData)
 }
 
-func (s *Server) generateSymbolChart(ticker string, plotType analysis.PlotType) ([]byte, error) {
+func (s *Server) generateSymbolChart(ctx context.Context, ticker string, plotType analysis.PlotType) ([]byte, error) {
 	// Get the symbol info
-	symbol, err := db.GetSymbol(ticker)
+	symbol, err := db.GetSymbol(ctx, ticker)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get symbol: %w", err)
 	}

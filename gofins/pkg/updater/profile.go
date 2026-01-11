@@ -45,7 +45,7 @@ func UpdateProfiles(ctx context.Context) {
 		default:
 		}
 
-		if err := updateProfilesImpl(log); err != nil {
+		if err := updateProfilesImpl(ctx, log); err != nil {
 			log.Errorf("Profile update failed: %v\n", err)
 		}
 
@@ -55,13 +55,13 @@ func UpdateProfiles(ctx context.Context) {
 	}
 }
 
-func UpdateProfilesOnce() error {
+func UpdateProfilesOnce(ctx context.Context) error {
 	log := NewLogger("Profile")
-	return updateProfilesImpl(log)
+	return updateProfilesImpl(ctx, log)
 }
 
-func updateProfilesImpl(log *log.Logger) error {
-	totalStale, err := db.CountStaleProfiles()
+func updateProfilesImpl(ctx context.Context, log *log.Logger) error {
+	totalStale, err := db.CountStaleProfiles(ctx)
 	if err != nil {
 		return err
 	}
@@ -69,7 +69,7 @@ func updateProfilesImpl(log *log.Logger) error {
 	log.Started(totalStale, ProfileWorkers)
 
 	for {
-		tickers, err := db.GetStaleProfiles(ProfileBatchSize)
+		tickers, err := db.GetStaleProfiles(ctx, ProfileBatchSize)
 		if err != nil {
 			return err
 		}
@@ -78,7 +78,7 @@ func updateProfilesImpl(log *log.Logger) error {
 			return nil
 		}
 
-		currentStale, _ := db.CountStaleProfiles()
+		currentStale, _ := db.CountStaleProfiles(ctx)
 		log.Batch(currentStale, len(tickers))
 
 		// Stats tracking
@@ -126,7 +126,7 @@ func updateProfilesImpl(log *log.Logger) error {
 
 		// Print stats
 		elapsed := time.Since(startTime)
-		currentStale, _ = db.CountStaleProfiles()
+		currentStale, _ = db.CountStaleProfiles(ctx)
 		log.Stats(len(stats.Updated), len(stats.NotFound), len(stats.Failed), currentStale, elapsed)
 		log.NotFoundList(stats.NotFound)
 		log.FailedList(stats.Failed)

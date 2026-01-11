@@ -16,7 +16,7 @@ var oldestPriceCmd = &cobra.Command{
 		fmt.Println("Recalculating oldest_price for all symbols...")
 
 		// Get all tickers
-		tickers, err := db.GetAllTickers()
+		tickers, err := db.GetAllTickers(cmd.Context())
 		if err != nil {
 			return fmt.Errorf("failed to get tickers: %w", err)
 		}

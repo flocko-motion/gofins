@@ -96,7 +96,7 @@ func syncSymbolsImpl(ctx context.Context, log *log.Logger) error {
 
 	allSymbols = filteredSymbols
 
-	dbTickers, err := db.GetAllTickers()
+	dbTickers, err := db.GetAllTickers(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get DB tickers: %w", err)
 	}
@@ -107,7 +107,7 @@ func syncSymbolsImpl(ctx context.Context, log *log.Logger) error {
 	for _, symbol := range allSymbols {
 		keepList = append(keepList, symbol.Symbol)
 	}
-	if err := db.DeactivateSymbolsNotInList(keepList); err != nil {
+	if err := db.DeactivateSymbolsNotInList(ctx, keepList); err != nil {
 		return fmt.Errorf("failed to deactivate old symbols: %w", err)
 	}
 

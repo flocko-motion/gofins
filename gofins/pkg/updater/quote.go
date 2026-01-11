@@ -33,7 +33,7 @@ func updateQuotesImpl(ctx context.Context, date time.Time, log *log.Logger) erro
 	log.Printf("Starting quote update for %s\n", date.Format("2006-01-02"))
 
 	// Get list of tickers that need quote updates (not from yesterday)
-	tickersNeedingUpdate, err := db.GetTickersNeedingQuoteUpdate()
+	tickersNeedingUpdate, err := db.GetTickersNeedingQuoteUpdate(ctx)
 	if err != nil {
 		log.Errorf("Failed to get tickers needing update: %v\n", err)
 		return fmt.Errorf("failed to get tickers needing update: %w", err)
@@ -74,7 +74,7 @@ func updateQuotesImpl(ctx context.Context, date time.Time, log *log.Logger) erro
 	}
 
 	// Fetch all symbol currencies from database
-	symbolCurrencies, err := db.GetAllSymbolCurrencies()
+	symbolCurrencies, err := db.GetAllSymbolCurrencies(ctx)
 	if err != nil {
 		log.Errorf("Failed to get symbol currencies: %v\n", err)
 		_ = db.FailBatchUpdate(ctx, logID, fmt.Sprintf("Failed to get symbol currencies: %v", err))

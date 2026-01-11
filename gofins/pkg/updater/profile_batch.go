@@ -29,7 +29,7 @@ func updateProfilesBatchImpl(ctx context.Context, log *log.Logger) error {
 	log.Printf("Starting batch profile update\n")
 
 	// Check if profiles were already updated today
-	tickersNeedingUpdate, err := db.GetTickersNeedingProfileUpdate()
+	tickersNeedingUpdate, err := db.GetTickersNeedingProfileUpdate(ctx)
 	if err != nil {
 		log.Errorf("Failed to get tickers needing profile update: %v\n", err)
 		return fmt.Errorf("failed to get tickers needing profile update: %w", err)
@@ -96,7 +96,7 @@ func updateProfilesBatchImpl(ctx context.Context, log *log.Logger) error {
 	// Only do this if we actually processed profiles - otherwise we'd incorrectly mark everything as not found
 	var staleCount int64
 	if len(profiles) > 0 {
-		staleCount, err = db.MarkStaleProfilesAsNotFound(batchStartTime)
+		staleCount, err = db.MarkStaleProfilesAsNotFound(ctx, batchStartTime)
 		if err != nil {
 			log.Errorf("Failed to mark stale profiles as not found: %v\n", err)
 		} else if staleCount > 0 {

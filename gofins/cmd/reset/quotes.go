@@ -16,7 +16,7 @@ var quotesCmd = &cobra.Command{
 		fmt.Println("✓ Database connected")
 
 		// Reset all current_price_time timestamps to NULL
-		rowsAffected, err := db.ResetQuoteTimestamps()
+		rowsAffected, err := db.ResetQuoteTimestamps(cmd.Context())
 		if err != nil {
 			return fmt.Errorf("failed to reset quote timestamps: %w", err)
 		}

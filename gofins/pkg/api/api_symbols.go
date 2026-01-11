@@ -8,7 +8,7 @@ import (
 )
 
 func (s *Server) handleListSymbols(w http.ResponseWriter, r *http.Request) {
-	tickers, err := db.GetAllTickers()
+	tickers, err := db.GetAllTickers(r.Context())
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

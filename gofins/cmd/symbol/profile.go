@@ -16,7 +16,7 @@ var profileCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ticker := args[0]
 
-		symbol, err := db.GetSymbol(ticker)
+		symbol, err := db.GetSymbol(cmd.Context(), ticker)
 		if err != nil {
 			return fmt.Errorf("failed to get symbol: %w", err)
 		}

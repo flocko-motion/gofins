@@ -57,3 +57,35 @@ func NullStringToMaybeString(n sql.NullString) *string {
 func StringToNullString(s string) sql.NullString {
 	return sql.NullString{String: s, Valid: true}
 }
+
+// NullBoolToMaybeBool converts sql.NullBool to *bool
+func NullBoolToMaybeBool(n sql.NullBool) *bool {
+	if !n.Valid {
+		return nil
+	}
+	return &n.Bool
+}
+
+// MaybeBoolToNullBool converts *bool to sql.NullBool
+func MaybeBoolToNullBool(ptr *bool) sql.NullBool {
+	if ptr == nil {
+		return sql.NullBool{}
+	}
+	return sql.NullBool{Bool: *ptr, Valid: true}
+}
+
+// NullFloat64ToMaybeFloat64 converts sql.NullFloat64 to *float64
+func NullFloat64ToMaybeFloat64(n sql.NullFloat64) *float64 {
+	if !n.Valid {
+		return nil
+	}
+	return &n.Float64
+}
+
+// MaybeFloat64ToNullFloat64 converts *float64 to sql.NullFloat64
+func MaybeFloat64ToNullFloat64(ptr *float64) sql.NullFloat64 {
+	if ptr == nil {
+		return sql.NullFloat64{}
+	}
+	return sql.NullFloat64{Float64: *ptr, Valid: true}
+}

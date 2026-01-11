@@ -12,7 +12,7 @@ var profilesCmd = &cobra.Command{
 	Short: "Reset profile update timestamps to force fresh reload from FMP",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		fmt.Println("=== Resetting Profile Update Timestamps ===")
-		rowsAffected, err := db.ResetProfileTimestamps()
+		rowsAffected, err := db.ResetProfileTimestamps(cmd.Context())
 		if err != nil {
 			return fmt.Errorf("failed to reset profile timestamps: %w", err)
 		}

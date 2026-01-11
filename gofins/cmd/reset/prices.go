@@ -16,7 +16,7 @@ var pricesCmd = &cobra.Command{
 		fmt.Println("✓ Database connected")
 
 		// Reset all last_price_update timestamps to NULL
-		rowsAffected, err := db.ResetPriceTimestamps()
+		rowsAffected, err := db.ResetPriceTimestamps(cmd.Context())
 		if err != nil {
 			return fmt.Errorf("failed to reset price timestamps: %w", err)
 		}

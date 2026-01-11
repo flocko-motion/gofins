@@ -1,12 +1,15 @@
 package db
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/flocko-motion/gofins/pkg/calculator"
+	"github.com/flocko-motion/gofins/pkg/db/generated"
+	"github.com/flocko-motion/gofins/pkg/f"
 	"github.com/flocko-motion/gofins/pkg/types"
 )
 
@@ -112,70 +115,62 @@ func putSymbolsBatch(symbols []types.Symbol) error {
 }
 
 // GetSymbol retrieves a symbol by ticker
-func GetSymbol(ticker string) (*types.Symbol, error) {
-	db := Db()
-	query := `
-		SELECT s.ticker, s.exchange, s.last_price_update, s.last_profile_update,
-			   s.last_price_status, s.last_profile_status,
-			   s.name, s.type, s.currency, s.sector, s.industry, s.country,
-			   s.description, s.website, s.isin, s.cik, s.inception, s.oldest_price, s.is_actively_trading, s.market_cap, s.primary_listing,
-			   s.ath12m, s.current_price_usd, s.current_price_time,
-			   COALESCE(f.ticker IS NOT NULL, false) as is_favorite
-		FROM symbols s
-		LEFT JOIN user_favorites f ON s.ticker = f.ticker
-		WHERE s.ticker = $1
-	`
-
-	s := &types.Symbol{}
-	err := db.conn.QueryRow(query, ticker).Scan(
-		&s.Ticker, &s.Exchange, &s.LastPriceUpdate, &s.LastProfileUpdate,
-		&s.LastPriceStatus, &s.LastProfileStatus,
-		&s.Name, &s.Type, &s.Currency, &s.Sector, &s.Industry, &s.Country,
-		&s.Description, &s.Website, &s.ISIN, &s.CIK, &s.Inception, &s.OldestPrice, &s.IsActivelyTrading, &s.MarketCap, &s.PrimaryListing,
-		&s.Ath12M, &s.CurrentPriceUsd, &s.CurrentPriceTime,
-		&s.IsFavorite,
-	)
-
+func GetSymbol(ctx context.Context, ticker string) (*types.Symbol, error) {
+	row, err := genQ().GetSymbol(ctx, ticker)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get symbol: %w", err)
 	}
 
-	return s, nil
+	return &types.Symbol{
+		Ticker:            row.Ticker,
+		Exchange:          f.NullStringToMaybeString(row.Exchange),
+		LastPriceUpdate:   f.NullTimeToMaybeTime(row.LastPriceUpdate),
+		LastProfileUpdate: f.NullTimeToMaybeTime(row.LastProfileUpdate),
+		LastPriceStatus:   f.NullStringToMaybeString(row.LastPriceStatus),
+		LastProfileStatus: f.NullStringToMaybeString(row.LastProfileStatus),
+		Name:              f.NullStringToMaybeString(row.Name),
+		Type:              f.NullStringToMaybeString(row.Type),
+		Currency:          f.NullStringToMaybeString(row.Currency),
+		Sector:            f.NullStringToMaybeString(row.Sector),
+		Industry:          f.NullStringToMaybeString(row.Industry),
+		Country:           f.NullStringToMaybeString(row.Country),
+		Description:       f.NullStringToMaybeString(row.Description),
+		Website:           f.NullStringToMaybeString(row.Website),
+		ISIN:              f.NullStringToMaybeString(row.Isin),
+		CIK:               f.NullStringToMaybeString(row.Cik),
+		Inception:         f.NullTimeToMaybeTime(row.Inception),
+		OldestPrice:       f.NullTimeToMaybeTime(row.OldestPrice),
+		IsActivelyTrading: f.NullBoolToMaybeBool(row.IsActivelyTrading),
+		MarketCap:         f.NullInt64ToMaybeInt64(row.MarketCap),
+		PrimaryListing:    f.NullStringToMaybeString(row.PrimaryListing),
+		Ath12M:            f.NullFloat64ToMaybeFloat64(row.Ath12m),
+		CurrentPriceUsd:   f.NullFloat64ToMaybeFloat64(row.CurrentPriceUsd),
+		CurrentPriceTime:  f.NullTimeToMaybeTime(row.CurrentPriceTime),
+		IsFavorite:        row.IsFavorite.(bool),
+	}, nil
 }
 
 // GetAllTickers returns all tickers from the symbols table
-func GetAllTickers() ([]string, error) {
-	db := Db()
-	rows, err := db.conn.Query("SELECT ticker FROM symbols")
+func GetAllTickers(ctx context.Context) ([]string, error) {
+	tickers, err := genQ().GetAllTickers(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get all tickers: %w", err)
 	}
-	defer rows.Close()
-
-	var tickers []string
-	for rows.Next() {
-		var ticker string
-		if err := rows.Scan(&ticker); err != nil {
-			return nil, err
-		}
-		tickers = append(tickers, ticker)
-	}
-
-	return tickers, rows.Err()
+	return tickers, nil
 }
 
 // DeactivateSymbolsNotInList marks symbols not in the provided list as inactive
-func DeactivateSymbolsNotInList(keepTickers []string) error {
+func DeactivateSymbolsNotInList(ctx context.Context, keepTickers []string) error {
 	db := Db()
 	if len(keepTickers) == 0 {
 		return nil
 	}
 
 	// Get all current tickers from database
-	allTickers, err := GetAllTickers()
+	allTickers, err := GetAllTickers(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get all tickers: %w", err)
 	}
@@ -305,33 +300,17 @@ func GetFavoriteSymbols() ([]types.Symbol, error) {
 
 // GetStaleProfiles returns symbols with outdated profiles (older than threshold or null)
 // Excludes indices and secondary listings (they don't need profile updates)
-func GetStaleProfiles(limit int) ([]string, error) {
-	db := Db()
-	query := `
-		SELECT ticker FROM symbols
-		WHERE (last_profile_update IS NULL OR last_profile_update < $1)
-		  AND (type IS NULL OR type != $2)
-		  AND (primary_listing IS NULL OR primary_listing = '')
-		ORDER BY last_profile_update ASC NULLS FIRST
-		LIMIT $3
-	`
-
-	rows, err := db.conn.Query(query, GetProfileThreshold(), types.TypeIndex, limit)
+func GetStaleProfiles(ctx context.Context, limit int) ([]string, error) {
+	threshold := GetProfileThreshold()
+	tickers, err := genQ().GetStaleProfiles(ctx, generated.GetStaleProfilesParams{
+		LastProfileUpdate: f.MaybeTimeToNullTime(&threshold),
+		Type:              f.StringToNullString(types.TypeIndex),
+		Limit:             int32(limit),
+	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get stale profiles: %w", err)
 	}
-	defer rows.Close()
-
-	var tickers []string
-	for rows.Next() {
-		var ticker string
-		if err := rows.Scan(&ticker); err != nil {
-			return nil, err
-		}
-		tickers = append(tickers, ticker)
-	}
-
-	return tickers, rows.Err()
+	return tickers, nil
 }
 
 // GetProfileThreshold returns the threshold for stale profiles (30 days ago)
@@ -340,116 +319,93 @@ func GetProfileThreshold() time.Time {
 }
 
 // CountSymbols returns the total number of symbols
-func CountSymbols() (int, error) {
-	db := Db()
-	query := `SELECT COUNT(*) FROM symbols`
-
-	var count int
-	err := db.conn.QueryRow(query).Scan(&count)
-	return count, err
+func CountSymbols(ctx context.Context) (int, error) {
+	count, err := genQ().CountSymbols(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("failed to count symbols: %w", err)
+	}
+	return int(count), nil
 }
 
 // CountActivelyTrading returns the count of actively trading symbols
-func CountActivelyTrading() (int, error) {
-	db := Db()
-	query := `SELECT COUNT(*) FROM symbols WHERE is_actively_trading = true`
-
-	var count int
-	err := db.conn.QueryRow(query).Scan(&count)
-	return count, err
+func CountActivelyTrading(ctx context.Context) (int, error) {
+	count, err := genQ().CountActivelyTrading(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("failed to count actively trading: %w", err)
+	}
+	return int(count), nil
 }
 
 // CountStaleProfiles returns the count of stale profiles
 // Excludes indices as they don't have profile endpoints
-func CountStaleProfiles() (int, error) {
-	db := Db()
-	query := `
-		SELECT COUNT(*) FROM symbols
-		WHERE (last_profile_update IS NULL OR last_profile_update < $1)
-		  AND (type IS NULL OR type != $2)
-	`
-
-	var count int
-	err := db.conn.QueryRow(query, GetProfileThreshold(), types.TypeIndex).Scan(&count)
-	return count, err
+func CountStaleProfiles(ctx context.Context) (int, error) {
+	threshold := GetProfileThreshold()
+	count, err := genQ().CountStaleProfiles(ctx, generated.CountStaleProfilesParams{
+		LastProfileUpdate: f.MaybeTimeToNullTime(&threshold),
+		Type:              f.StringToNullString(types.TypeIndex),
+	})
+	if err != nil {
+		return 0, fmt.Errorf("failed to count stale profiles: %w", err)
+	}
+	return int(count), nil
 }
 
 // GetOldestProfileUpdate returns the oldest profile update timestamp
-func GetOldestProfileUpdate() (*time.Time, error) {
-	db := Db()
-	query := `
-		SELECT MIN(last_profile_update) FROM symbols
-		WHERE last_profile_update IS NOT NULL
-	`
-
-	var oldest *time.Time
-	err := db.conn.QueryRow(query).Scan(&oldest)
+func GetOldestProfileUpdate(ctx context.Context) (*time.Time, error) {
+	result, err := genQ().GetOldestProfileUpdate(ctx)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
-	return oldest, err
+	if err != nil {
+		return nil, fmt.Errorf("failed to get oldest profile update: %w", err)
+	}
+
+	// Handle interface{} return from sqlc
+	if result == nil {
+		return nil, nil
+	}
+	if t, ok := result.(time.Time); ok {
+		return &t, nil
+	}
+	return nil, nil
 }
 
 // ResetQuoteTimestamps resets all current quote timestamps to force fresh reload
-func ResetQuoteTimestamps() (int64, error) {
-	db := Db()
-	result, err := db.conn.Exec(`
-		UPDATE symbols 
-		SET current_price_time = NULL
-	`)
+func ResetQuoteTimestamps(ctx context.Context) (int64, error) {
+	count, err := genQ().ResetQuoteTimestamps(ctx)
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("failed to reset quote timestamps: %w", err)
 	}
-	return result.RowsAffected()
+	return count, nil
 }
 
 // ResetPriceTimestamps resets all price update timestamps to force fresh reload
-func ResetPriceTimestamps() (int64, error) {
-	db := Db()
-	result, err := db.conn.Exec(`
-		UPDATE symbols 
-		SET last_price_update = NULL, last_price_status = NULL
-	`)
+func ResetPriceTimestamps(ctx context.Context) (int64, error) {
+	count, err := genQ().ResetPriceTimestamps(ctx)
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("failed to reset price timestamps: %w", err)
 	}
-	return result.RowsAffected()
+	return count, nil
 }
 
 // ResetProfileTimestamps resets all profile update timestamps to force fresh reload
-func ResetProfileTimestamps() (int64, error) {
-	db := Db()
-	result, err := db.conn.Exec(`
-		UPDATE symbols 
-		SET last_profile_update = NULL, last_profile_status = NULL
-	`)
+func ResetProfileTimestamps(ctx context.Context) (int64, error) {
+	count, err := genQ().ResetProfileTimestamps(ctx)
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("failed to reset profile timestamps: %w", err)
 	}
-	return result.RowsAffected()
+	return count, nil
 }
 
 // ResetSymbol resets price and profile timestamps for a single symbol
-func ResetSymbol(ticker string) error {
-	db := Db()
-	result, err := db.conn.Exec(`
-		UPDATE symbols 
-		SET last_price_update = NULL, last_price_status = NULL,
-		    last_profile_update = NULL, last_profile_status = NULL
-		WHERE ticker = $1
-	`, ticker)
+func ResetSymbol(ctx context.Context, ticker string) error {
+	count, err := genQ().ResetSymbol(ctx, ticker)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to reset symbol: %w", err)
 	}
-	
-	rows, err := result.RowsAffected()
-	if err != nil {
-		return err
-	}
-	if rows == 0 {
+	if count == 0 {
 		return fmt.Errorf("symbol %s not found", ticker)
 	}
-	
 	return nil
 }
 
@@ -501,124 +457,71 @@ func GetSymbolsByStatus(status string, statusType string) ([]types.Symbol, error
 }
 
 // ResetIndexTimestamps resets timestamps for indices and marks them as actively trading
-func ResetIndexTimestamps() (int64, error) {
-	db := Db()
-	result, err := db.conn.Exec(`
-		UPDATE symbols 
-		SET last_price_update = NULL, 
-		    last_price_status = NULL,
-		    last_profile_update = NULL,
-		    last_profile_status = NULL,
-		    is_actively_trading = true
-		WHERE type = $1
-	`, types.TypeIndex)
+func ResetIndexTimestamps(ctx context.Context) (int64, error) {
+	count, err := genQ().ResetIndexTimestamps(ctx, f.StringToNullString(types.TypeIndex))
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("failed to reset index timestamps: %w", err)
 	}
-	return result.RowsAffected()
+	return count, nil
 }
 
 // GetAllSymbolCurrencies returns a map of ticker -> currency for all symbols
-func GetAllSymbolCurrencies() (map[string]string, error) {
-	db := Db()
-
-	rows, err := db.conn.Query(`
-		SELECT ticker, COALESCE(currency, 'USD') as currency
-		FROM symbols
-	`)
+func GetAllSymbolCurrencies(ctx context.Context) (map[string]string, error) {
+	rows, err := genQ().GetAllSymbolCurrencies(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get all symbol currencies: %w", err)
 	}
-	defer rows.Close()
 
 	currencies := make(map[string]string)
-	for rows.Next() {
-		var ticker, currency string
-		if err := rows.Scan(&ticker, &currency); err != nil {
-			return nil, err
-		}
-		currencies[ticker] = currency
+	for _, row := range rows {
+		currencies[row.Ticker] = row.Currency
 	}
 
-	return currencies, rows.Err()
+	return currencies, nil
 }
 
 // MarkStaleProfilesAsNotFound marks all profiles that haven't been updated since the given time as not found
-func MarkStaleProfilesAsNotFound(since time.Time) (int64, error) {
-	db := Db()
-
-	result, err := db.conn.Exec(`
-		UPDATE symbols
-		SET last_profile_status = $1
-		WHERE last_profile_update < $2
-		   OR last_profile_update IS NULL
-	`, types.StatusNotFound, since)
-
+func MarkStaleProfilesAsNotFound(ctx context.Context, since time.Time) (int64, error) {
+	count, err := genQ().MarkStaleProfilesAsNotFound(ctx, generated.MarkStaleProfilesAsNotFoundParams{
+		LastProfileStatus: f.StringToNullString(types.StatusNotFound),
+		LastProfileUpdate: f.MaybeTimeToNullTime(&since),
+	})
 	if err != nil {
 		return 0, fmt.Errorf("failed to mark stale profiles as not found: %w", err)
 	}
-
-	return result.RowsAffected()
+	return count, nil
 }
 
 // GetTickersNeedingProfileUpdate returns tickers that don't have profiles updated yesterday or later
-func GetTickersNeedingProfileUpdate() (map[string]bool, error) {
-	db := Db()
+func GetTickersNeedingProfileUpdate(ctx context.Context) (map[string]bool, error) {
 	yesterday := calculator.Yesterday()
-
-	query := `
-		SELECT ticker 
-		FROM symbols 
-		WHERE last_profile_update IS NULL 
-		   OR last_profile_update < $1
-	`
-
-	rows, err := db.conn.Query(query, yesterday)
+	tickers, err := genQ().GetTickersNeedingProfileUpdate(ctx, f.MaybeTimeToNullTime(&yesterday))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get tickers needing profile update: %w", err)
 	}
-	defer rows.Close()
 
 	result := make(map[string]bool)
-	for rows.Next() {
-		var ticker string
-		if err := rows.Scan(&ticker); err != nil {
-			return nil, fmt.Errorf("failed to scan ticker: %w", err)
-		}
+	for _, ticker := range tickers {
 		result[ticker] = true
 	}
 
-	return result, rows.Err()
+	return result, nil
 }
 
 // GetTickersNeedingQuoteUpdate returns tickers that don't have quotes from yesterday
-func GetTickersNeedingQuoteUpdate() (map[string]bool, error) {
-	db := Db()
+func GetTickersNeedingQuoteUpdate(ctx context.Context) (map[string]bool, error) {
 	yesterday := calculator.StartOfDay(time.Now().AddDate(0, 0, -1))
-
-	query := `
-		SELECT ticker 
-		FROM symbols 
-		WHERE current_price_time IS NULL 
-		   OR current_price_time < $1
-	`
-
-	rows, err := db.conn.Query(query, yesterday)
+	tickers, err := genQ().GetTickersNeedingQuoteUpdate(ctx, f.MaybeTimeToNullTime(&yesterday))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get tickers needing update: %w", err)
 	}
-	defer rows.Close()
 
 	result := make(map[string]bool)
-	for rows.Next() {
-		var ticker string
-		if err := rows.Scan(&ticker); err != nil {
-			return nil, fmt.Errorf("failed to scan ticker: %w", err)
-		}
+	for _, ticker := range tickers {
 		result[ticker] = true
 	}
 
-	return result, rows.Err()
+	return result, nil
 }
 
 // UpdateQuotes updates current prices for symbols using batched transactions

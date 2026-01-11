@@ -12,7 +12,7 @@ var indicesCmd = &cobra.Command{
 	Short: "Reset update timestamps for indices",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		fmt.Println("=== Resetting Index Update Timestamps ===")
-		rowsAffected, err := db.ResetIndexTimestamps()
+		rowsAffected, err := db.ResetIndexTimestamps(cmd.Context())
 		if err != nil {
 			return fmt.Errorf("failed to reset index timestamps: %w", err)
 		}
