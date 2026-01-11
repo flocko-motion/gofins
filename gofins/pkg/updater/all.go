@@ -20,13 +20,13 @@ func RunAllUpdaters(ctx context.Context) {
 
 		// Step 1: Sync symbols
 		log.Printf("Step 1/5: Syncing symbols...\n")
-		if err := SyncSymbolsOnce(); err != nil {
+		if err := SyncSymbolsOnce(ctx); err != nil {
 			log.Errorf("Symbol sync failed: %v\n", err)
 		}
 
 		// Step 2: Update profiles
 		log.Printf("Step 2/5: Updating profiles...\n")
-		if err := UpdateProfilesBatch(ctx, NewLogger("ProfileBatch")); err != nil {
+		if err := UpdateProfilesBatchOnce(ctx); err != nil {
 			log.Errorf("Profile update failed: %v\n", err)
 		}
 
@@ -44,7 +44,7 @@ func RunAllUpdaters(ctx context.Context) {
 
 		// Step 5: Deduplicate
 		log.Printf("Step 5/5: Deduplicating symbols...\n")
-		if err := DedupeSymbolsOnce(); err != nil {
+		if err := DedupeSymbolsOnce(ctx); err != nil {
 			log.Errorf("Deduplication failed: %v\n", err)
 		}
 

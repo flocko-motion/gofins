@@ -1,6 +1,7 @@
 package updater
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -11,25 +12,25 @@ import (
 	"github.com/flocko-motion/gofins/pkg/types"
 )
 
-func SyncSymbols() {
+func SyncSymbols(ctx context.Context) {
 	log := NewLogger("Symbols")
 
 	for {
-		if err := syncSymbolsImpl(log); err != nil {
+		if err := syncSymbolsImpl(ctx, log); err != nil {
 			log.Errorf("Symbol sync failed: %v\n", err)
 		}
 		time.Sleep(time.Hour * 24 * 7) // Sleep for 7 days
 	}
 }
 
-func SyncSymbolsOnce() error {
+func SyncSymbolsOnce(ctx context.Context) error {
 	log := NewLogger("Symbols")
-	return syncSymbolsImpl(log)
+	return syncSymbolsImpl(ctx, log)
 }
 
-func syncSymbolsImpl(log *log.Logger) error {
+func syncSymbolsImpl(ctx context.Context, log *log.Logger) error {
 	// Check if we already ran today
-	lastRun, err := db.GetLastBatchUpdate("symbols")
+	lastRun, err := db.GetLastBatchUpdate(ctx, "symbols")
 	if err == nil && lastRun != nil && lastRun.CompletedAt != nil {
 		today := time.Now().Truncate(24 * time.Hour)
 		lastRunDay := lastRun.CompletedAt.Truncate(24 * time.Hour)
@@ -40,7 +41,7 @@ func syncSymbolsImpl(log *log.Logger) error {
 	}
 
 	// Start batch log
-	batchID, err := db.StartBatchUpdate("symbols")
+	batchID, err := db.StartBatchUpdate(ctx, "symbols")
 	if err != nil {
 		log.Errorf("Failed to start batch log: %v\n", err)
 		// Continue anyway
@@ -50,7 +51,7 @@ func syncSymbolsImpl(log *log.Logger) error {
 	stocks, err := fmp.FetchStockList()
 	if err != nil {
 		if batchID > 0 {
-			db.FailBatchUpdate(batchID, err.Error())
+			db.FailBatchUpdate(ctx, batchID, err.Error())
 		}
 		return fmt.Errorf("failed to fetch stock list: %w", err)
 	}
@@ -141,14 +142,14 @@ func syncSymbolsImpl(log *log.Logger) error {
 	}
 
 	log.Printf("✓ Added %d new symbols\n", newCount)
-	
+
 	// Complete batch log
 	if batchID > 0 {
 		totalProcessed := len(allSymbols)
-		if err := db.CompleteBatchUpdate(batchID, totalProcessed, newCount); err != nil {
+		if err := db.CompleteBatchUpdate(ctx, batchID, totalProcessed, newCount); err != nil {
 			log.Errorf("Failed to complete batch log: %v\n", err)
 		}
 	}
-	
+
 	return nil
 }

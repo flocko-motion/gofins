@@ -1,6 +1,7 @@
 package updater
 
 import (
+	"context"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -17,33 +18,33 @@ type DedupeConfig struct {
 	Symbols   []string // Specific symbols to include (empty = all symbols)
 }
 
-func DedupeSymbols() {
+func DedupeSymbols(ctx context.Context) {
 	log := NewLogger("Dedupe")
 	config := &DedupeConfig{MaxGroups: 0} // unlimited
 
 	for {
-		if err := dedupeSymbolsImpl(log, config); err != nil {
+		if err := dedupeSymbolsImpl(ctx, log, config); err != nil {
 			log.Errorf("Dedupe failed: %v\n", err)
 		}
 		time.Sleep(time.Hour * 24 * 7) // Sleep for 7 days
 	}
 }
 
-func DedupeSymbolsOnce() error {
-	return DedupeSymbolsOnceWithConfig(nil)
+func DedupeSymbolsOnce(ctx context.Context) error {
+	return DedupeSymbolsOnceWithConfig(ctx, nil)
 }
 
-func DedupeSymbolsOnceWithConfig(config *DedupeConfig) error {
+func DedupeSymbolsOnceWithConfig(ctx context.Context, config *DedupeConfig) error {
 	if config == nil {
 		config = &DedupeConfig{MaxGroups: 0} // unlimited
 	}
 	log := NewLogger("Dedupe")
-	return dedupeSymbolsImpl(log, config)
+	return dedupeSymbolsImpl(ctx, log, config)
 }
 
-func dedupeSymbolsImpl(log *log.Logger, config *DedupeConfig) error {
+func dedupeSymbolsImpl(ctx context.Context, log *log.Logger, config *DedupeConfig) error {
 	// Check if we already ran today
-	lastRun, err := db.GetLastBatchUpdate("dedupe")
+	lastRun, err := db.GetLastBatchUpdate(ctx, "dedupe")
 	if err == nil && lastRun != nil && lastRun.CompletedAt != nil {
 		today := time.Now().Truncate(24 * time.Hour)
 		lastRunDay := lastRun.CompletedAt.Truncate(24 * time.Hour)
@@ -60,7 +61,7 @@ func dedupeSymbolsImpl(log *log.Logger, config *DedupeConfig) error {
 	startTime := time.Now()
 
 	// Start batch log
-	batchID, err := db.StartBatchUpdate("dedupe")
+	batchID, err := db.StartBatchUpdate(ctx, "dedupe")
 	if err != nil {
 		log.Errorf("Failed to start batch log: %v\n", err)
 		// Continue anyway
@@ -103,7 +104,7 @@ func dedupeSymbolsImpl(log *log.Logger, config *DedupeConfig) error {
 	// Complete batch log
 	if batchID > 0 {
 		totalProcessed := totalUpdated + totalFailed
-		if err := db.CompleteBatchUpdate(batchID, totalProcessed, totalUpdated); err != nil {
+		if err := db.CompleteBatchUpdate(ctx, batchID, totalProcessed, totalUpdated); err != nil {
 			log.Errorf("Failed to complete batch log: %v\n", err)
 		}
 	}

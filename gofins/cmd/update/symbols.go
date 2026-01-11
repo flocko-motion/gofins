@@ -12,7 +12,7 @@ var symbolsCmd = &cobra.Command{
 	Short: "Run symbol sync once (fetch symbol list from FMP)",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		fmt.Println("Running symbol sync...")
-		if err := updater.SyncSymbolsOnce(); err != nil {
+		if err := updater.SyncSymbolsOnce(cmd.Context()); err != nil {
 			return fmt.Errorf("symbol sync failed: %w", err)
 		}
 		fmt.Println("Symbol sync completed successfully")

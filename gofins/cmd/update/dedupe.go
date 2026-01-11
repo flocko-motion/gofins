@@ -12,7 +12,7 @@ var dedupeCmd = &cobra.Command{
 	Short: "Run deduplication once (identify primary/secondary listings)",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		fmt.Println("Running deduplication...")
-		if err := updater.DedupeSymbolsOnce(); err != nil {
+		if err := updater.DedupeSymbolsOnce(cmd.Context()); err != nil {
 			return fmt.Errorf("deduplication failed: %w", err)
 		}
 		fmt.Println("Deduplication completed successfully")

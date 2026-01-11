@@ -1,8 +1,13 @@
 package db
 
 import (
+	"context"
+	"database/sql"
 	"fmt"
 	"time"
+
+	"github.com/flocko-motion/gofins/pkg/db/generated"
+	"github.com/flocko-motion/gofins/pkg/f"
 )
 
 type BatchUpdateLog struct {
@@ -17,99 +22,75 @@ type BatchUpdateLog struct {
 }
 
 // StartBatchUpdate creates a new batch update log entry
-func StartBatchUpdate(updaterName string) (int, error) {
-	db := Db()
-
-	var id int
-	err := db.conn.QueryRow(`
-		INSERT INTO batch_update_log (updater_name, started_at, status)
-		VALUES ($1, $2, 'running')
-		RETURNING id
-	`, updaterName, time.Now()).Scan(&id)
-
+func StartBatchUpdate(ctx context.Context, updaterName string) (int, error) {
+	id, err := genQ().StartBatchUpdate(ctx, generated.StartBatchUpdateParams{
+		UpdaterName: updaterName,
+		StartedAt:   time.Now(),
+	})
 	if err != nil {
 		return 0, fmt.Errorf("failed to start batch update log: %w", err)
 	}
-
-	return id, nil
+	return int(id), nil
 }
 
 // CompleteBatchUpdate marks a batch update as completed
-func CompleteBatchUpdate(id int, symbolsProcessed, symbolsUpdated int) error {
-	db := Db()
-
-	_, err := db.conn.Exec(`
-		UPDATE batch_update_log
-		SET completed_at = $1,
-		    status = 'completed',
-		    symbols_processed = $2,
-		    symbols_updated = $3
-		WHERE id = $4
-	`, time.Now(), symbolsProcessed, symbolsUpdated, id)
-
+func CompleteBatchUpdate(ctx context.Context, id int, symbolsProcessed, symbolsUpdated int) error {
+	now := time.Now()
+	err := genQ().CompleteBatchUpdate(ctx, generated.CompleteBatchUpdateParams{
+		CompletedAt:      f.MaybeTimeToNullTime(&now),
+		SymbolsProcessed: sql.NullInt32{Int32: int32(symbolsProcessed), Valid: true},
+		SymbolsUpdated:   sql.NullInt32{Int32: int32(symbolsUpdated), Valid: true},
+		ID:               int32(id),
+	})
 	if err != nil {
 		return fmt.Errorf("failed to complete batch update log: %w", err)
 	}
-
 	return nil
 }
 
 // FailBatchUpdate marks a batch update as failed
-func FailBatchUpdate(id int, errorMessage string) error {
-	db := Db()
-
-	_, err := db.conn.Exec(`
-		UPDATE batch_update_log
-		SET completed_at = $1,
-		    status = 'failed',
-		    error_message = $2
-		WHERE id = $3
-	`, time.Now(), errorMessage, id)
-
+func FailBatchUpdate(ctx context.Context, id int, errorMessage string) error {
+	now := time.Now()
+	err := genQ().FailBatchUpdate(ctx, generated.FailBatchUpdateParams{
+		CompletedAt:  f.MaybeTimeToNullTime(&now),
+		ErrorMessage: sql.NullString{String: errorMessage, Valid: true},
+		ID:           int32(id),
+	})
 	if err != nil {
 		return fmt.Errorf("failed to mark batch update as failed: %w", err)
 	}
-
 	return nil
 }
 
 // GetLastBatchUpdate returns the last batch update for a given updater
-func GetLastBatchUpdate(updaterName string) (*BatchUpdateLog, error) {
-	db := Db()
-
-	var log BatchUpdateLog
-	err := db.conn.QueryRow(`
-		SELECT id, updater_name, started_at, completed_at, status, 
-		       symbols_processed, symbols_updated, error_message
-		FROM batch_update_log
-		WHERE updater_name = $1
-		  AND status = 'completed'
-		ORDER BY started_at DESC
-		LIMIT 1
-	`, updaterName).Scan(
-		&log.ID, &log.UpdaterName, &log.StartedAt, &log.CompletedAt,
-		&log.Status, &log.SymbolsProcessed, &log.SymbolsUpdated, &log.ErrorMessage,
-	)
-
+func GetLastBatchUpdate(ctx context.Context, updaterName string) (*BatchUpdateLog, error) {
+	genLog, err := genQ().GetLastBatchUpdate(ctx, updaterName)
 	if err != nil {
 		return nil, err
 	}
 
-	return &log, nil
+	var errorMessage *string
+	if genLog.ErrorMessage.Valid {
+		errorMessage = &genLog.ErrorMessage.String
+	}
+
+	return &BatchUpdateLog{
+		ID:               int(genLog.ID),
+		UpdaterName:      genLog.UpdaterName,
+		StartedAt:        genLog.StartedAt,
+		CompletedAt:      f.NullTimeToMaybeTime(genLog.CompletedAt),
+		Status:           genLog.Status,
+		SymbolsProcessed: int(genLog.SymbolsProcessed.Int32),
+		SymbolsUpdated:   int(genLog.SymbolsUpdated.Int32),
+		ErrorMessage:     errorMessage,
+	}, nil
 }
 
 // DeleteBatchUpdate deletes all batch update logs for a given updater
-func DeleteBatchUpdate(updaterName string) error {
-	db := Db()
-
-	_, err := db.conn.Exec(`
-		DELETE FROM batch_update_log
-		WHERE updater_name = $1
-	`, updaterName)
-
+func DeleteBatchUpdate(ctx context.Context, updaterName string) error {
+	err := genQ().DeleteBatchUpdate(ctx, updaterName)
 	if err != nil {
 		return fmt.Errorf("failed to delete batch update logs: %w", err)
 	}
-
 	return nil
 }

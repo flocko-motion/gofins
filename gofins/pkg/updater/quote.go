@@ -26,6 +26,10 @@ var (
 
 // UpdateQuotes fetches bulk EOD data and updates current prices for all symbols
 func UpdateQuotes(ctx context.Context, date time.Time, log *log.Logger) error {
+	return updateQuotesImpl(ctx, date, log)
+}
+
+func updateQuotesImpl(ctx context.Context, date time.Time, log *log.Logger) error {
 	log.Printf("Starting quote update for %s\n", date.Format("2006-01-02"))
 
 	// Get list of tickers that need quote updates (not from yesterday)
@@ -43,7 +47,7 @@ func UpdateQuotes(ctx context.Context, date time.Time, log *log.Logger) error {
 	log.Printf("  %d tickers need quote updates\n", len(tickersNeedingUpdate))
 
 	// Start batch update log
-	logID, err := db.StartBatchUpdate("quote")
+	logID, err := db.StartBatchUpdate(ctx, "quote")
 	if err != nil {
 		log.Errorf("Failed to start batch update log: %v\n", err)
 		return fmt.Errorf("failed to start batch update log: %w", err)
@@ -56,7 +60,7 @@ func UpdateQuotes(ctx context.Context, date time.Time, log *log.Logger) error {
 	var weeklyUpdateMap, monthlyUpdateMap map[string]bool
 	if isStartOfWeek || isStartOfMonth {
 		log.Printf("  Today is start of week/month - checking for incremental price updates\n")
-		weeklyUpdateMap, monthlyUpdateMap, err = getSymbolsNeedingIncrementalUpdate(date, log)
+		weeklyUpdateMap, monthlyUpdateMap, err = getSymbolsNeedingIncrementalUpdate(ctx, date, log)
 		if err != nil {
 			log.Errorf("Failed to get incremental update candidates: %v\n", err)
 			// Continue anyway - not critical
@@ -73,7 +77,7 @@ func UpdateQuotes(ctx context.Context, date time.Time, log *log.Logger) error {
 	symbolCurrencies, err := db.GetAllSymbolCurrencies()
 	if err != nil {
 		log.Errorf("Failed to get symbol currencies: %v\n", err)
-		_ = db.FailBatchUpdate(logID, fmt.Sprintf("Failed to get symbol currencies: %v", err))
+		_ = db.FailBatchUpdate(ctx, logID, fmt.Sprintf("Failed to get symbol currencies: %v", err))
 		return fmt.Errorf("failed to get symbol currencies: %w", err)
 	}
 	log.Printf("  Loaded %d symbols with currencies\n", len(symbolCurrencies))
@@ -82,7 +86,7 @@ func UpdateQuotes(ctx context.Context, date time.Time, log *log.Logger) error {
 	bulkQuotes, err := fmp.GetBulkEOD(date)
 	if err != nil {
 		log.Errorf("Failed to fetch bulk EOD: %v\n", err)
-		_ = db.FailBatchUpdate(logID, fmt.Sprintf("Failed to fetch bulk EOD: %v", err))
+		_ = db.FailBatchUpdate(ctx, logID, fmt.Sprintf("Failed to fetch bulk EOD: %v", err))
 		return fmt.Errorf("failed to fetch bulk EOD: %w", err)
 	}
 	log.Printf("  Fetched %d quotes from FMP\n", len(bulkQuotes))
@@ -100,7 +104,7 @@ func UpdateQuotes(ctx context.Context, date time.Time, log *log.Logger) error {
 	// Convert prices to USD and prepare for database update
 	// Use yesterday as the quote date (normalized to start of day)
 	yesterday := calculator.Yesterday()
-	quotes := convertQuotesToUSD(filteredQuotes, symbolCurrencies, yesterday, log)
+	quotes := convertQuotesToUSD(ctx, filteredQuotes, symbolCurrencies, yesterday, log)
 	log.Printf("  Converted %d quotes to USD\n", len(quotes))
 
 	// Process incremental price history updates if applicable
@@ -115,13 +119,13 @@ func UpdateQuotes(ctx context.Context, date time.Time, log *log.Logger) error {
 	// Update database (batching handled in db.UpdateQuotes)
 	if err := db.UpdateQuotes(quotes); err != nil {
 		log.Errorf("Failed to update quotes: %v\n", err)
-		_ = db.FailBatchUpdate(logID, fmt.Sprintf("Failed to update quotes: %v", err))
+		_ = db.FailBatchUpdate(ctx, logID, fmt.Sprintf("Failed to update quotes: %v", err))
 		return fmt.Errorf("failed to update quotes: %w", err)
 	}
 	updated := len(quotes)
 
 	// Complete batch update log
-	if err := db.CompleteBatchUpdate(logID, len(bulkQuotes), updated); err != nil {
+	if err := db.CompleteBatchUpdate(ctx, logID, len(bulkQuotes), updated); err != nil {
 		log.Errorf("Failed to complete batch update log: %v\n", err)
 	}
 
@@ -130,7 +134,7 @@ func UpdateQuotes(ctx context.Context, date time.Time, log *log.Logger) error {
 }
 
 // convertQuotesToUSD converts quotes to USD based on symbol currencies
-func convertQuotesToUSD(bulkQuotes map[string]*types.PriceData, symbolCurrencies map[string]string, date time.Time, log *log.Logger) []types.Symbol {
+func convertQuotesToUSD(ctx context.Context, bulkQuotes map[string]*types.PriceData, symbolCurrencies map[string]string, date time.Time, log *log.Logger) []types.Symbol {
 	var quotes []types.Symbol
 	conversionErrors := 0
 
@@ -178,14 +182,14 @@ func convertQuotesToUSD(bulkQuotes map[string]*types.PriceData, symbolCurrencies
 
 // UpdateQuotesOnce runs a single quote update for yesterday's date
 func UpdateQuotesOnce(ctx context.Context) error {
-	log := NewLogger("Quotes")
+	log := NewLogger("Quote")
 	yesterday := time.Now().AddDate(0, 0, -1)
 	return UpdateQuotes(ctx, yesterday, log)
 }
 
 // getSymbolsNeedingIncrementalUpdate returns two maps of symbols that need incremental updates
 // Returns weeklyMap[ticker]bool and monthlyMap[ticker]bool
-func getSymbolsNeedingIncrementalUpdate(date time.Time, log *log.Logger) (map[string]bool, map[string]bool, error) {
+func getSymbolsNeedingIncrementalUpdate(ctx context.Context, date time.Time, log *log.Logger) (map[string]bool, map[string]bool, error) {
 	weeklyMap := make(map[string]bool)
 	monthlyMap := make(map[string]bool)
 
