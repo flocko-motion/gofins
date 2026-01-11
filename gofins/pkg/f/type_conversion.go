@@ -36,3 +36,24 @@ func NullTimeToMaybeTime(n sql.NullTime) *time.Time {
 	}
 	return &n.Time
 }
+
+// MaybeStringToNullString converts *string to sql.NullString
+func MaybeStringToNullString(ptr *string) sql.NullString {
+	if ptr == nil {
+		return sql.NullString{}
+	}
+	return sql.NullString{String: *ptr, Valid: true}
+}
+
+// NullStringToMaybeString converts sql.NullString to *string
+func NullStringToMaybeString(n sql.NullString) *string {
+	if !n.Valid {
+		return nil
+	}
+	return &n.String
+}
+
+// StringToNullString converts string to sql.NullString
+func StringToNullString(s string) sql.NullString {
+	return sql.NullString{String: s, Valid: true}
+}

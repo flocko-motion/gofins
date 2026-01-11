@@ -14,7 +14,7 @@ var dedupeCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		fmt.Println("Resetting all primary_listing fields...")
 
-		count, err := db.ResetPrimaryListings()
+		count, err := db.ResetPrimaryListings(cmd.Context())
 		if err != nil {
 			return fmt.Errorf("failed to reset primary listings: %w", err)
 		}

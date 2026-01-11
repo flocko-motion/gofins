@@ -76,14 +76,14 @@ func dedupeSymbolsImpl(ctx context.Context, log *log.Logger, config *DedupeConfi
 	// wg.Add(1)
 	// go func() {
 	// 	defer wg.Done()
-	// 	cikUpdated, cikFailed, cikErr = dedupeByCIK(config)
+	// 	cikUpdated, cikFailed, cikErr = dedupeByCIK(ctx, config)
 	// }()
 
 	// Phase 2: Process stocks without CIK by name
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		nameUpdated, nameFailed, nameErr = dedupeByName(config)
+		nameUpdated, nameFailed, nameErr = dedupeByName(ctx, config)
 	}()
 
 	wg.Wait()
@@ -113,9 +113,9 @@ func dedupeSymbolsImpl(ctx context.Context, log *log.Logger, config *DedupeConfi
 }
 
 // dedupeByCIK groups symbols by CIK and identifies primary listings
-func dedupeByCIK(config *DedupeConfig) (int, int, error) {
+func dedupeByCIK(ctx context.Context, config *DedupeConfig) (int, int, error) {
 	log := NewLogger("Dedupe.CIK")
-	symbols, err := db.GetSymbolsWithCIK()
+	symbols, err := db.GetSymbolsWithCIK(ctx)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -182,7 +182,7 @@ func dedupeByCIK(config *DedupeConfig) (int, int, error) {
 			defer wg.Done()
 			for item := range workChan {
 				// Find primary ticker for this group
-				primaryTicker, err := findPrimaryByCIK(item.cik, item.group)
+				primaryTicker, err := findPrimaryByCIK(ctx, item.cik, item.group)
 				if err != nil {
 					log.Errorf("Failed to find primary for CIK %s: %v\n", item.cik, err)
 					failed.Add(int32(len(item.group)))
@@ -199,7 +199,7 @@ func dedupeByCIK(config *DedupeConfig) (int, int, error) {
 				}
 
 				// Update the entire group in one transaction
-				if err := db.UpdatePrimaryListingGroup(primaryTicker, secondaryTickers); err != nil {
+				if err := db.UpdatePrimaryListingGroup(ctx, primaryTicker, secondaryTickers); err != nil {
 					log.Errorf("Failed to update group for CIK %s: %v\n", item.cik, err)
 					failed.Add(int32(len(item.group)))
 				} else {
@@ -232,7 +232,7 @@ func dedupeByCIK(config *DedupeConfig) (int, int, error) {
 }
 
 // findPrimaryByCIK determines the primary listing for a CIK group
-func findPrimaryByCIK(cik string, group []types.Symbol) (string, error) {
+func findPrimaryByCIK(ctx context.Context, cik string, group []types.Symbol) (string, error) {
 	// Query FMP to get the primary listing
 	primaryProfile, err := fmp.GetProfileByCIK(cik)
 	if err != nil {
@@ -252,9 +252,9 @@ func findPrimaryByCIK(cik string, group []types.Symbol) (string, error) {
 }
 
 // dedupeByName groups stocks by exact name match
-func dedupeByName(config *DedupeConfig) (int, int, error) {
+func dedupeByName(ctx context.Context, config *DedupeConfig) (int, int, error) {
 	log := NewLogger("Dedupe.Name")
-	symbols, err := db.GetStockSymbolsForNameDedupe()
+	symbols, err := db.GetStockSymbolsForNameDedupe(ctx)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -332,7 +332,7 @@ func dedupeByName(config *DedupeConfig) (int, int, error) {
 				}
 
 				// Update the entire group in one transaction
-				if err := db.UpdatePrimaryListingGroup(primaryTicker, secondaryTickers); err != nil {
+				if err := db.UpdatePrimaryListingGroup(ctx, primaryTicker, secondaryTickers); err != nil {
 					log.Errorf("Failed to update group for name '%s': %v\n", item.name, err)
 					failed.Add(int32(len(item.group)))
 				} else {
