@@ -128,13 +128,9 @@ export default function SymbolDetail({ symbol, analysisId, onClose }: SymbolDeta
             const target = event.target as HTMLElement;
             const isTyping = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT';
 
-            // If typing, only allow Enter in textarea to submit, ignore everything else
+            // If typing, ignore ALL hotkeys
             if (isTyping) {
-                if (event.key === 'Enter' && target.tagName === 'TEXTAREA') {
-                    event.preventDefault();
-                    handleSubmitRating();
-                }
-                return; // Ignore all other hotkeys when typing
+                return;
             }
 
             // Hotkeys only work when NOT typing
@@ -196,7 +192,7 @@ export default function SymbolDetail({ symbol, analysisId, onClose }: SymbolDeta
             const negativeRatingMap: Record<string, number> = {
                 '!': -1, '"': -2, '§': -3, '$': -4, '%': -5
             };
-            
+
             if (event.key in negativeRatingMap) {
                 setRating(negativeRatingMap[event.key]);
                 setTimeout(() => {
@@ -215,7 +211,7 @@ export default function SymbolDetail({ symbol, analysisId, onClose }: SymbolDeta
                     }, 0);
                 }
             }
-            
+
             if (event.key.toLowerCase() === 't') {
                 const tradingViewUrl = `https://www.tradingview.com/chart/?symbol=${symbol}`;
                 window.open(tradingViewUrl, '_blank', 'noopener,noreferrer');
@@ -249,10 +245,9 @@ export default function SymbolDetail({ symbol, analysisId, onClose }: SymbolDeta
                         </span>
                         <h2 className="text-2xl font-semibold">{symbol}</h2>
                         {ratingHistory.length > 0 && (
-                            <span className={`font-mono text-2xl font-bold ${
-                                ratingHistory[0].rating === 0 ? 'text-gray-500' :
-                                ratingHistory[0].rating > 0 ? 'text-green-600' : 'text-red-600'
-                            }`}>
+                            <span className={`font-mono text-2xl font-bold ${ratingHistory[0].rating === 0 ? 'text-gray-500' :
+                                    ratingHistory[0].rating > 0 ? 'text-green-600' : 'text-red-600'
+                                }`}>
                                 {ratingHistory[0].rating > 0 ? '+' : ''}{ratingHistory[0].rating}
                             </span>
                         )}

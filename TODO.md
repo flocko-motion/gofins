@@ -16,6 +16,8 @@ All thresholds should be set for a single update per month.
 We _might_ do a daily update of just the prices and that just for our watchlist. That would save us a lot of queries. Currency conversion should still be based on the latest monthly data
 to avoid fetching data from FMP too often.
 
+Next FMP subscription will contain worldwide data - so we expect a lot of load.
+
 ## Journal / Notebook Feature
 
 **Concept**: Unified research journal mixing ratings and freeform notes
