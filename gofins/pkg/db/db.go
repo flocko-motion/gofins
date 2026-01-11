@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/flocko-motion/gofins/pkg/db/generated"
 	"github.com/flocko-motion/gofins/pkg/files"
 	"github.com/flocko-motion/gofins/pkg/log"
 	_ "github.com/lib/pq"
@@ -61,6 +62,10 @@ func Db() *DB {
 	return globalDB
 }
 
+func genQ() *generated.Queries {
+	return generated.New(Db().conn)
+}
+
 // newDB creates a new database connection
 func newDB() (*DB, error) {
 	// Try environment variables first (for Docker), then fall back to config file (for local dev)
@@ -68,7 +73,7 @@ func newDB() (*DB, error) {
 	port := getEnvOrDefault("DB_PORT", "5432")
 	user := getEnvOrDefault("DB_USER", "fins")
 	dbname := getEnvOrDefault("DB_NAME", "fins")
-	
+
 	password := getEnvOrDefault("DB_PASSWORD", "")
 	if password == "" {
 		// Fallback to config file for local development
@@ -79,7 +84,7 @@ func newDB() (*DB, error) {
 		}
 	}
 
-	connStr := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable", 
+	connStr := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
 		host, port, user, password, dbname)
 
 	conn, err := sql.Open("postgres", connStr)

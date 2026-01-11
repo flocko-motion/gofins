@@ -1,6 +1,7 @@
 package db
 
 import (
+	"context"
 	"database/sql"
 	"time"
 
@@ -82,29 +83,12 @@ func GetUserByID(id uuid.UUID) (*types.User, error) {
 }
 
 // ListUsers returns all users
-func ListUsers() ([]types.User, error) {
-	db := Db()
-
-	rows, err := db.conn.Query(`
-		SELECT id, name, created_at, is_admin
-		FROM users
-		ORDER BY created_at ASC
-	`)
+func ListUsers(ctx context.Context) ([]types.User, error) {
+	genUsers, err := genQ().ListUsers(ctx)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-
-	var users []types.User
-	for rows.Next() {
-		var user types.User
-		if err := rows.Scan(&user.ID, &user.Name, &user.CreatedAt, &user.IsAdmin); err != nil {
-			return nil, err
-		}
-		users = append(users, user)
-	}
-
-	return users, rows.Err()
+	return ToUsers(genUsers), nil
 }
 
 // DeleteUser deletes a user and all their data (ratings, favorites)
@@ -153,7 +137,7 @@ func UpdateUserAdmin(nameOrID string, isAdmin bool) (*types.User, error) {
 	// Try to parse as UUID first
 	userID, err := uuid.Parse(nameOrID)
 	var user *types.User
-	
+
 	if err == nil {
 		// It's a valid UUID, get by ID
 		user, err = GetUserByID(userID)

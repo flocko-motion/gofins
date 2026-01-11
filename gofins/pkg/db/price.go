@@ -36,23 +36,29 @@ func GetOldestPriceDate(ticker string) (*time.Time, error) {
 func AppendSinglePrice(price types.PriceData, interval types.PriceInterval) error {
 	db := Db()
 	tableName := string(interval) + "_prices"
-	
+
 	query := fmt.Sprintf(`
-		INSERT INTO %s (symbol_ticker, date, open, high, low, avg, close, yoy)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		INSERT INTO %s (symbol_ticker, date, open, high, low, avg, close, yoy, open_orig, high_orig, low_orig, avg_orig, close_orig)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 		ON CONFLICT (symbol_ticker, date) DO UPDATE SET
 			open = EXCLUDED.open,
 			high = EXCLUDED.high,
 			low = EXCLUDED.low,
 			avg = EXCLUDED.avg,
 			close = EXCLUDED.close,
-			yoy = EXCLUDED.yoy
+			yoy = EXCLUDED.yoy,
+			open_orig = EXCLUDED.open_orig,
+			high_orig = EXCLUDED.high_orig,
+			low_orig = EXCLUDED.low_orig,
+			avg_orig = EXCLUDED.avg_orig,
+			close_orig = EXCLUDED.close_orig
 	`, tableName)
-	
+
 	_, err := db.conn.Exec(query,
 		price.SymbolTicker, price.Date, price.Open, price.High, price.Low,
-		price.Avg, price.Close, price.YoY)
-	
+		price.Avg, price.Close, price.YoY, price.OpenOrig, price.HighOrig,
+		price.LowOrig, price.AvgOrig, price.CloseOrig)
+
 	return err
 }
 
@@ -73,20 +79,22 @@ func PutMonthlyPrices(prices []types.PriceData) error {
 		}
 		chunk := prices[i:end]
 
-		// Build VALUES list: ($1,$2,...), ($9,$10,...), ...
+		// Build VALUES list: ($1,$2,...), ($13,$14,...), ...
 		valueStrings := make([]string, 0, len(chunk))
-		valueArgs := make([]interface{}, 0, len(chunk)*8)
-		
+		valueArgs := make([]interface{}, 0, len(chunk)*13)
+
 		for idx, p := range chunk {
-			paramOffset := idx * 8
-			valueStrings = append(valueStrings, fmt.Sprintf("($%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d)",
+			paramOffset := idx * 13
+			valueStrings = append(valueStrings, fmt.Sprintf("($%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d)",
 				paramOffset+1, paramOffset+2, paramOffset+3, paramOffset+4,
-				paramOffset+5, paramOffset+6, paramOffset+7, paramOffset+8))
-			valueArgs = append(valueArgs, p.Date, p.Open, p.High, p.Low, p.Avg, p.Close, p.YoY, p.SymbolTicker)
+				paramOffset+5, paramOffset+6, paramOffset+7, paramOffset+8,
+				paramOffset+9, paramOffset+10, paramOffset+11, paramOffset+12, paramOffset+13))
+			valueArgs = append(valueArgs, p.Date, p.Open, p.High, p.Low, p.Avg, p.Close, p.YoY, p.SymbolTicker,
+				p.OpenOrig, p.HighOrig, p.LowOrig, p.AvgOrig, p.CloseOrig)
 		}
 
 		query := fmt.Sprintf(`
-			INSERT INTO monthly_prices (date, open, high, low, avg, close, yoy, symbol_ticker)
+			INSERT INTO monthly_prices (date, open, high, low, avg, close, yoy, symbol_ticker, open_orig, high_orig, low_orig, avg_orig, close_orig)
 			VALUES %s
 			ON CONFLICT (date, symbol_ticker) DO UPDATE SET
 				open = EXCLUDED.open,
@@ -94,7 +102,12 @@ func PutMonthlyPrices(prices []types.PriceData) error {
 				low = EXCLUDED.low,
 				avg = EXCLUDED.avg,
 				close = EXCLUDED.close,
-				yoy = EXCLUDED.yoy
+				yoy = EXCLUDED.yoy,
+				open_orig = EXCLUDED.open_orig,
+				high_orig = EXCLUDED.high_orig,
+				low_orig = EXCLUDED.low_orig,
+				avg_orig = EXCLUDED.avg_orig,
+				close_orig = EXCLUDED.close_orig
 		`, joinStrings(valueStrings, ","))
 
 		_, err := db.conn.Exec(query, valueArgs...)
@@ -134,20 +147,22 @@ func PutWeeklyPrices(prices []types.PriceData) error {
 		}
 		chunk := prices[i:end]
 
-		// Build VALUES list: ($1,$2,...), ($9,$10,...), ...
+		// Build VALUES list: ($1,$2,...), ($13,$14,...), ...
 		valueStrings := make([]string, 0, len(chunk))
-		valueArgs := make([]interface{}, 0, len(chunk)*8)
-		
+		valueArgs := make([]interface{}, 0, len(chunk)*13)
+
 		for idx, p := range chunk {
-			paramOffset := idx * 8
-			valueStrings = append(valueStrings, fmt.Sprintf("($%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d)",
+			paramOffset := idx * 13
+			valueStrings = append(valueStrings, fmt.Sprintf("($%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d,$%d)",
 				paramOffset+1, paramOffset+2, paramOffset+3, paramOffset+4,
-				paramOffset+5, paramOffset+6, paramOffset+7, paramOffset+8))
-			valueArgs = append(valueArgs, p.Date, p.Open, p.High, p.Low, p.Avg, p.Close, p.YoY, p.SymbolTicker)
+				paramOffset+5, paramOffset+6, paramOffset+7, paramOffset+8,
+				paramOffset+9, paramOffset+10, paramOffset+11, paramOffset+12, paramOffset+13))
+			valueArgs = append(valueArgs, p.Date, p.Open, p.High, p.Low, p.Avg, p.Close, p.YoY, p.SymbolTicker,
+				p.OpenOrig, p.HighOrig, p.LowOrig, p.AvgOrig, p.CloseOrig)
 		}
 
 		query := fmt.Sprintf(`
-			INSERT INTO weekly_prices (date, open, high, low, avg, close, yoy, symbol_ticker)
+			INSERT INTO weekly_prices (date, open, high, low, avg, close, yoy, symbol_ticker, open_orig, high_orig, low_orig, avg_orig, close_orig)
 			VALUES %s
 			ON CONFLICT (date, symbol_ticker) DO UPDATE SET
 				open = EXCLUDED.open,
@@ -155,7 +170,12 @@ func PutWeeklyPrices(prices []types.PriceData) error {
 				low = EXCLUDED.low,
 				avg = EXCLUDED.avg,
 				close = EXCLUDED.close,
-				yoy = EXCLUDED.yoy
+				yoy = EXCLUDED.yoy,
+				open_orig = EXCLUDED.open_orig,
+				high_orig = EXCLUDED.high_orig,
+				low_orig = EXCLUDED.low_orig,
+				avg_orig = EXCLUDED.avg_orig,
+				close_orig = EXCLUDED.close_orig
 		`, joinStrings(valueStrings, ","))
 
 		_, err := db.conn.Exec(query, valueArgs...)
@@ -173,7 +193,7 @@ func GetPrices(ticker string, from, to time.Time, interval types.PriceInterval) 
 	tableName := string(interval) + "_prices"
 
 	query := fmt.Sprintf(`
-		SELECT date, open, high, low, avg, close, yoy, symbol_ticker
+		SELECT date, open, high, low, avg, close, yoy, symbol_ticker, open_orig, high_orig, low_orig, avg_orig, close_orig
 		FROM %s
 		WHERE symbol_ticker = $1 AND date >= $2 AND date <= $3
 		ORDER BY date ASC
@@ -188,7 +208,8 @@ func GetPrices(ticker string, from, to time.Time, interval types.PriceInterval) 
 	var prices []types.PriceData
 	for rows.Next() {
 		var p types.PriceData
-		if err := rows.Scan(&p.Date, &p.Open, &p.High, &p.Low, &p.Avg, &p.Close, &p.YoY, &p.SymbolTicker); err != nil {
+		if err := rows.Scan(&p.Date, &p.Open, &p.High, &p.Low, &p.Avg, &p.Close, &p.YoY, &p.SymbolTicker,
+			&p.OpenOrig, &p.HighOrig, &p.LowOrig, &p.AvgOrig, &p.CloseOrig); err != nil {
 			return nil, err
 		}
 		prices = append(prices, p)
@@ -212,13 +233,13 @@ func GetWeeklyPrices(ticker string, from, to time.Time) ([]types.PriceData, erro
 func GetLatestPriceDate(ticker string, interval types.PriceInterval) (*time.Time, error) {
 	db := Db()
 	tableName := string(interval) + "_prices"
-	
+
 	query := fmt.Sprintf(`
 		SELECT MAX(date) 
 		FROM %s
 		WHERE symbol_ticker = $1
 	`, tableName)
-	
+
 	var latestDate *time.Time
 	err := db.conn.QueryRow(query, ticker).Scan(&latestDate)
 	if err == sql.ErrNoRows {
@@ -227,7 +248,7 @@ func GetLatestPriceDate(ticker string, interval types.PriceInterval) (*time.Time
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return latestDate, nil
 }
 
@@ -242,7 +263,7 @@ func GetPricesBatch(tickers []string, from, to time.Time, interval types.PriceIn
 	tableName := string(interval) + "_prices"
 
 	query := fmt.Sprintf(`
-		SELECT date, open, high, low, avg, close, yoy, symbol_ticker
+		SELECT date, open, high, low, avg, close, yoy, symbol_ticker, open_orig, high_orig, low_orig, avg_orig, close_orig
 		FROM %s
 		WHERE symbol_ticker = ANY($1) AND date >= $2 AND date <= $3
 		ORDER BY symbol_ticker, date ASC
@@ -257,7 +278,8 @@ func GetPricesBatch(tickers []string, from, to time.Time, interval types.PriceIn
 	result := make(map[string][]types.PriceData)
 	for rows.Next() {
 		var p types.PriceData
-		if err := rows.Scan(&p.Date, &p.Open, &p.High, &p.Low, &p.Avg, &p.Close, &p.YoY, &p.SymbolTicker); err != nil {
+		if err := rows.Scan(&p.Date, &p.Open, &p.High, &p.Low, &p.Avg, &p.Close, &p.YoY, &p.SymbolTicker,
+			&p.OpenOrig, &p.HighOrig, &p.LowOrig, &p.AvgOrig, &p.CloseOrig); err != nil {
 			return nil, err
 		}
 		result[p.SymbolTicker] = append(result[p.SymbolTicker], p)
@@ -371,10 +393,11 @@ func GetSymbolsWithStalePrices(limit int) ([]types.Symbol, error) {
 	return symbols, rows.Err()
 }
 
-// GetPriceThreshold returns the threshold for stale prices (1st of current month at noon UTC)
+// GetPriceThreshold returns the threshold for stale prices (30 days ago)
+// Changed from monthly to 30-day rolling window to reduce FMP queries
 func GetPriceThreshold() time.Time {
 	now := time.Now().UTC()
-	return time.Date(now.Year(), now.Month(), 1, 12, 0, 0, 0, time.UTC)
+	return now.AddDate(0, 0, -30)
 }
 
 // CountStalePrices returns the count of stale prices

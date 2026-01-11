@@ -5,18 +5,22 @@ Weekly prices show blocks of N/A YoY values during 2020-2021 period (e.g., AAPL 
 
 # TODO list for gofins, in order of priority
 
-## FMP
+## FMP - IMPLEMENTED ✓
 
-We wasted too many FMP queries in the past - we need to be more conservative. One big update session per month should be enough.
-We should store all price data in original currency in a one column and store converted prices in another column. This allows us to 
-reconvert prices to current currency if needed without refetching data from FMP.
+**Implementation completed:**
+- Dual currency storage: prices stored in both original currency (*_orig columns) and USD
+- Update threshold changed from monthly (1st of month) to 30-day rolling window
+- Original prices preserved in DB, allowing reconversion without refetching from FMP
+- Migration: deployment/migrations/001_add_original_currency_prices.sql
 
-All thresholds should be set for a single update per month. 
+**To deploy:**
+1. Run migration: `./gofins db sql -q "$(cat deployment/migrations/001_add_original_currency_prices.sql)"`
+2. Next price update will populate original currency columns
+3. Monitor FMP query reduction (should be ~12x fewer queries per year)
 
-We _might_ do a daily update of just the prices and that just for our watchlist. That would save us a lot of queries. Currency conversion should still be based on the latest monthly data
-to avoid fetching data from FMP too often.
-
-Next FMP subscription will contain worldwide data - so we expect a lot of load.
+**Future enhancements (optional):**
+- Daily watchlist-only price updates (not yet implemented)
+- Forex conversion still uses monthly cached data (already optimized)
 
 ## Journal / Notebook Feature
 

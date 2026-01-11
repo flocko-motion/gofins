@@ -427,6 +427,12 @@ func convertForexPrices(monthly, weekly []types.PriceData, currency string) ([]t
 			Avg:          price.Avg * rate,
 			YoY:          price.YoY,          // Preserve YoY percentage
 			SymbolTicker: price.SymbolTicker, // Preserve ticker
+			// Store original currency values
+			OpenOrig:  &price.Open,
+			HighOrig:  &price.High,
+			LowOrig:   &price.Low,
+			AvgOrig:   &price.Avg,
+			CloseOrig: &price.Close,
 		}
 		insert++
 	}
@@ -451,6 +457,12 @@ func convertForexPrices(monthly, weekly []types.PriceData, currency string) ([]t
 			Avg:          price.Avg * rate,
 			YoY:          price.YoY,          // Preserve YoY percentage
 			SymbolTicker: price.SymbolTicker, // Preserve ticker
+			// Store original currency values
+			OpenOrig:  &price.Open,
+			HighOrig:  &price.High,
+			LowOrig:   &price.Low,
+			AvgOrig:   &price.Avg,
+			CloseOrig: &price.Close,
 		}
 		insert++
 	}
