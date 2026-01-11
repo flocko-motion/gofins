@@ -1,190 +1,224 @@
 package db
 
 import (
+	"context"
 	"database/sql"
 
+	"github.com/flocko-motion/gofins/pkg/db/generated"
+	"github.com/flocko-motion/gofins/pkg/f"
 	"github.com/flocko-motion/gofins/pkg/types"
 	"github.com/google/uuid"
 )
 
 // CreateAnalysisPackage inserts a new analysis package with status='processing'
-func CreateAnalysisPackage(pkg *types.AnalysisPackage) error {
-	db := Db()
-	query := `
-		INSERT INTO analysis_packages (
-			id, name, created_at, interval, time_from, time_to,
-			hist_bins, hist_min, hist_max, mcap_min, inception_max, status, user_id
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-	`
+func CreateAnalysisPackage(ctx context.Context, pkg *types.AnalysisPackage) error {
+	pkgUUID, err := uuid.Parse(pkg.ID)
+	if err != nil {
+		return err
+	}
 
-	_, err := db.conn.Exec(query,
-		pkg.ID, pkg.Name, pkg.CreatedAt, pkg.Interval,
-		pkg.TimeFrom, pkg.TimeTo,
-		pkg.HistBins, pkg.HistMin, pkg.HistMax,
-		pkg.McapMin, pkg.InceptionMax, pkg.Status, pkg.UserID,
-	)
-
-	return err
+	return genQ().CreateAnalysisPackage(ctx, generated.CreateAnalysisPackageParams{
+		ID:           pkgUUID,
+		Name:         pkg.Name,
+		CreatedAt:    pkg.CreatedAt,
+		Interval:     pkg.Interval,
+		TimeFrom:     pkg.TimeFrom,
+		TimeTo:       pkg.TimeTo,
+		HistBins:     int32(pkg.HistBins),
+		HistMin:      pkg.HistMin,
+		HistMax:      pkg.HistMax,
+		McapMin:      f.MaybeInt64ToNullInt64(pkg.McapMin),
+		InceptionMax: f.MaybeTimeToNullTime(pkg.InceptionMax),
+		Status:       pkg.Status,
+		UserID:       pkg.UserID,
+	})
 }
 
 // UpdateAnalysisPackageStatus updates the status and symbol count of a package for a specific user
-func UpdateAnalysisPackageStatus(userID uuid.UUID, packageID string, status string, symbolCount int) error {
-	db := Db()
-	query := `UPDATE analysis_packages SET status = $1, symbol_count = $2 WHERE id = $3 AND user_id = $4`
-	_, err := db.conn.Exec(query, status, symbolCount, packageID, userID)
-	return err
+func UpdateAnalysisPackageStatus(ctx context.Context, userID uuid.UUID, packageID string, status string, symbolCount int) error {
+	pkgUUID, err := uuid.Parse(packageID)
+	if err != nil {
+		return err
+	}
+	return genQ().UpdateAnalysisPackageStatus(ctx, generated.UpdateAnalysisPackageStatusParams{
+		Status:      status,
+		SymbolCount: sql.NullInt32{Int32: int32(symbolCount), Valid: true},
+		ID:          pkgUUID,
+		UserID:      userID,
+	})
 }
 
 // SaveAnalysisResult saves a single analysis result (verifies package ownership)
-func SaveAnalysisResult(userID uuid.UUID, packageID, ticker string, count int, mean, stddev, variance, min, max float64, histogramJSON []byte) error {
-	db := Db()
-	
+func SaveAnalysisResult(ctx context.Context, userID uuid.UUID, packageID, ticker string, count int, mean, stddev, variance, min, max float64, histogramJSON []byte) error {
+	pkgUUID, err := uuid.Parse(packageID)
+	if err != nil {
+		return err
+	}
+
 	// Verify package belongs to user
-	var exists bool
-	err := db.conn.QueryRow(`SELECT EXISTS(SELECT 1 FROM analysis_packages WHERE id = $1 AND user_id = $2)`, packageID, userID).Scan(&exists)
+	exists, err := genQ().VerifyPackageOwnership(ctx, generated.VerifyPackageOwnershipParams{
+		ID:     pkgUUID,
+		UserID: userID,
+	})
 	if err != nil {
 		return err
 	}
 	if !exists {
-		return sql.ErrNoRows // Package doesn't exist or doesn't belong to user
+		return sql.ErrNoRows
 	}
-	
-	query := `
-		INSERT INTO analysis_results (
-			package_id, ticker, count, mean, stddev, variance, min, max, histogram
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-	`
 
-	_, err = db.conn.Exec(query,
-		packageID, ticker, count, mean, stddev, variance, min, max, histogramJSON,
-	)
-
-	return err
+	return genQ().SaveAnalysisResult(ctx, generated.SaveAnalysisResultParams{
+		PackageID: pkgUUID,
+		Ticker:    ticker,
+		Count:     int32(count),
+		Mean:      mean,
+		Stddev:    stddev,
+		Variance:  variance,
+		Min:       min,
+		Max:       max,
+		Histogram: histogramJSON,
+	})
 }
 
 // GetAnalysisResults retrieves all results for a package (verifies package ownership)
-func GetAnalysisResults(userID uuid.UUID, packageID string) ([]types.AnalysisResult, error) {
-	db := Db()
-	
+func GetAnalysisResults(ctx context.Context, userID uuid.UUID, packageID string) ([]types.AnalysisResult, error) {
+	pkgUUID, err := uuid.Parse(packageID)
+	if err != nil {
+		return nil, err
+	}
+
 	// Verify package belongs to user
-	var exists bool
-	err := db.conn.QueryRow(`SELECT EXISTS(SELECT 1 FROM analysis_packages WHERE id = $1 AND user_id = $2)`, packageID, userID).Scan(&exists)
+	exists, err := genQ().VerifyPackageOwnership(ctx, generated.VerifyPackageOwnershipParams{
+		ID:     pkgUUID,
+		UserID: userID,
+	})
 	if err != nil {
 		return nil, err
 	}
 	if !exists {
-		return nil, sql.ErrNoRows // Package doesn't exist or doesn't belong to user
+		return nil, sql.ErrNoRows
 	}
-	
-	query := `
-		SELECT ar.package_id, ar.ticker, ar.count, ar.mean, ar.stddev, ar.variance, ar.min, ar.max, s.inception
-		FROM analysis_results ar
-		JOIN symbols s ON ar.ticker = s.ticker
-		WHERE ar.package_id = $1
-		ORDER BY ar.mean DESC
-	`
 
-	rows, err := db.conn.Query(query, packageID)
+	genResults, err := genQ().GetAnalysisResults(ctx, pkgUUID)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
 
-	var results []types.AnalysisResult
-	for rows.Next() {
-		var r types.AnalysisResult
-		if err := rows.Scan(&r.PackageID, &r.Ticker, &r.Count, &r.Mean, &r.StdDev, &r.Variance, &r.Min, &r.Max, &r.InceptionDate); err != nil {
-			return nil, err
+	results := make([]types.AnalysisResult, len(genResults))
+	for i, r := range genResults {
+		results[i] = types.AnalysisResult{
+			PackageID:     r.PackageID.String(),
+			Ticker:        r.Ticker,
+			Count:         int(r.Count),
+			Mean:          r.Mean,
+			StdDev:        r.Stddev,
+			Variance:      r.Variance,
+			Min:           r.Min,
+			Max:           r.Max,
+			InceptionDate: f.NullTimeToMaybeTime(r.Inception),
 		}
-		results = append(results, r)
 	}
 
-	return results, rows.Err()
+	return results, nil
 }
 
 // GetAnalysisPackage retrieves a package by ID for a specific user
-func GetAnalysisPackage(userID uuid.UUID, packageID string) (*types.AnalysisPackage, error) {
-	db := Db()
-	query := `
-		SELECT id, name, created_at, interval, time_from, time_to,
-		       hist_bins, hist_min, hist_max, mcap_min, inception_max, symbol_count, status, user_id
-		FROM analysis_packages
-		WHERE id = $1 AND user_id = $2
-	`
-
-	pkg := &types.AnalysisPackage{}
-	var symbolCount sql.NullInt64
-	err := db.conn.QueryRow(query, packageID, userID).Scan(
-		&pkg.ID, &pkg.Name, &pkg.CreatedAt, &pkg.Interval, &pkg.TimeFrom, &pkg.TimeTo,
-		&pkg.HistBins, &pkg.HistMin, &pkg.HistMax, &pkg.McapMin, &pkg.InceptionMax,
-		&symbolCount, &pkg.Status, &pkg.UserID,
-	)
-
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
-
-	if symbolCount.Valid {
-		pkg.SymbolCount = int(symbolCount.Int64)
-	} else {
-		pkg.SymbolCount = 0
-	}
-
-	return pkg, err
-}
-
-// ListAnalysisPackages returns all analysis packages for a specific user
-func ListAnalysisPackages(userID uuid.UUID) ([]types.AnalysisPackage, error) {
-	db := Db()
-	query := `
-		SELECT id, name, created_at, interval, time_from, time_to,
-		       hist_bins, hist_min, hist_max, mcap_min, inception_max, symbol_count, status, user_id
-		FROM analysis_packages
-		WHERE user_id = $1
-		ORDER BY created_at DESC
-	`
-
-	rows, err := db.conn.Query(query, userID)
+func GetAnalysisPackage(ctx context.Context, userID uuid.UUID, packageID string) (*types.AnalysisPackage, error) {
+	pkgUUID, err := uuid.Parse(packageID)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
 
-	var packages []types.AnalysisPackage
-	for rows.Next() {
-		var pkg types.AnalysisPackage
-		var symbolCount sql.NullInt64
-		if err := rows.Scan(
-			&pkg.ID, &pkg.Name, &pkg.CreatedAt, &pkg.Interval, &pkg.TimeFrom, &pkg.TimeTo,
-			&pkg.HistBins, &pkg.HistMin, &pkg.HistMax, &pkg.McapMin, &pkg.InceptionMax,
-			&symbolCount, &pkg.Status, &pkg.UserID,
-		); err != nil {
-			return nil, err
-		}
-		if symbolCount.Valid {
-			pkg.SymbolCount = int(symbolCount.Int64)
-		} else {
-			pkg.SymbolCount = 0
-		}
-		packages = append(packages, pkg)
+	genPkg, err := genQ().GetAnalysisPackage(ctx, generated.GetAnalysisPackageParams{
+		ID:     pkgUUID,
+		UserID: userID,
+	})
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
 	}
 
-	return packages, rows.Err()
+	symbolCount := 0
+	if genPkg.SymbolCount.Valid {
+		symbolCount = int(genPkg.SymbolCount.Int32)
+	}
+
+	return &types.AnalysisPackage{
+		ID:           genPkg.ID.String(),
+		Name:         genPkg.Name,
+		CreatedAt:    genPkg.CreatedAt,
+		Interval:     genPkg.Interval,
+		TimeFrom:     genPkg.TimeFrom,
+		TimeTo:       genPkg.TimeTo,
+		HistBins:     int(genPkg.HistBins),
+		HistMin:      genPkg.HistMin,
+		HistMax:      genPkg.HistMax,
+		McapMin:      f.NullInt64ToMaybeInt64(genPkg.McapMin),
+		InceptionMax: f.NullTimeToMaybeTime(genPkg.InceptionMax),
+		SymbolCount:  symbolCount,
+		Status:       genPkg.Status,
+		UserID:       genPkg.UserID,
+	}, nil
+}
+
+// ListAnalysisPackages returns all analysis packages for a specific user
+func ListAnalysisPackages(ctx context.Context, userID uuid.UUID) ([]types.AnalysisPackage, error) {
+	genPkgs, err := genQ().ListAnalysisPackages(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	packages := make([]types.AnalysisPackage, len(genPkgs))
+	for i, genPkg := range genPkgs {
+		symbolCount := 0
+		if genPkg.SymbolCount.Valid {
+			symbolCount = int(genPkg.SymbolCount.Int32)
+		}
+
+		packages[i] = types.AnalysisPackage{
+			ID:           genPkg.ID.String(),
+			Name:         genPkg.Name,
+			CreatedAt:    genPkg.CreatedAt,
+			Interval:     genPkg.Interval,
+			TimeFrom:     genPkg.TimeFrom,
+			TimeTo:       genPkg.TimeTo,
+			HistBins:     int(genPkg.HistBins),
+			HistMin:      genPkg.HistMin,
+			HistMax:      genPkg.HistMax,
+			McapMin:      f.NullInt64ToMaybeInt64(genPkg.McapMin),
+			InceptionMax: f.NullTimeToMaybeTime(genPkg.InceptionMax),
+			SymbolCount:  symbolCount,
+			Status:       genPkg.Status,
+			UserID:       genPkg.UserID,
+		}
+	}
+
+	return packages, nil
 }
 
 // UpdateAnalysisPackageName updates the name of a package for a specific user
-func UpdateAnalysisPackageName(userID uuid.UUID, packageID string, name string) error {
-	db := Db()
-	query := `UPDATE analysis_packages SET name = $1 WHERE id = $2 AND user_id = $3`
-	_, err := db.conn.Exec(query, name, packageID, userID)
-	return err
+func UpdateAnalysisPackageName(ctx context.Context, userID uuid.UUID, packageID string, name string) error {
+	pkgUUID, err := uuid.Parse(packageID)
+	if err != nil {
+		return err
+	}
+	return genQ().UpdateAnalysisPackageName(ctx, generated.UpdateAnalysisPackageNameParams{
+		Name:   name,
+		ID:     pkgUUID,
+		UserID: userID,
+	})
 }
 
 // DeleteAnalysisPackage deletes a package for a specific user (CASCADE will delete results)
-func DeleteAnalysisPackage(userID uuid.UUID, packageID string) error {
-	db := Db()
-	query := `DELETE FROM analysis_packages WHERE id = $1 AND user_id = $2`
-	_, err := db.conn.Exec(query, packageID, userID)
-	return err
+func DeleteAnalysisPackage(ctx context.Context, userID uuid.UUID, packageID string) error {
+	pkgUUID, err := uuid.Parse(packageID)
+	if err != nil {
+		return err
+	}
+	return genQ().DeleteAnalysisPackage(ctx, generated.DeleteAnalysisPackageParams{
+		ID:     pkgUUID,
+		UserID: userID,
+	})
 }
-

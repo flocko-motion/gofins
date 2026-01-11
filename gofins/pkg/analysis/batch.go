@@ -1,6 +1,7 @@
 package analysis
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"path/filepath"
@@ -18,7 +19,8 @@ type SymbolStats struct {
 
 // AnalyzeBatch performs YoY analysis on multiple symbols using batch query
 // Returns statistics for each symbol that has YoY data
-func AnalyzeBatch(config AnalysisPackageConfig) ([]SymbolStats, error) {
+func AnalyzeBatch(ctx context.Context, config AnalysisPackageConfig) ([]SymbolStats, error) {
+	logf("%s Starting batch analysis for %d symbols\n", config.PackageID, len(config.Tickers))
 	// Fetch all prices in a single batch query
 	pricesMap, err := db.GetPricesBatch(config.Tickers, config.TimeFrom, config.TimeTo, config.Interval)
 	if err != nil {
@@ -47,9 +49,9 @@ func AnalyzeBatch(config AnalysisPackageConfig) ([]SymbolStats, error) {
 				logf("%s Progress: %d/%d processed, %d results (%.1f%%)\n",
 					config.PackageID,
 					currentProcessed, totalTickers, currentResults, float64(currentProcessed)/float64(totalTickers)*100)
-				
+
 				// Update package status in database with current progress
-				db.UpdateAnalysisPackageStatus(config.UserID, config.PackageID, "processing", currentResults)
+				db.UpdateAnalysisPackageStatus(ctx, config.UserID, config.PackageID, "processing", currentResults)
 			}
 		}
 	}()
@@ -61,11 +63,11 @@ func AnalyzeBatch(config AnalysisPackageConfig) ([]SymbolStats, error) {
 	for _, ticker := range config.Tickers {
 		ticker := ticker // Capture for goroutine
 		prices, ok := pricesMap[ticker]
-		
+
 		// Check rejection reasons
 		var rejected bool
 		var reason string
-		
+
 		if !ok {
 			rejected = true
 			reason = "no_price_data"
@@ -76,12 +78,12 @@ func AnalyzeBatch(config AnalysisPackageConfig) ([]SymbolStats, error) {
 			rejected = true
 			reason = "insufficient_history"
 		}
-		
+
 		if rejected {
 			rejectionMu.Lock()
 			rejectionReasons[reason]++
 			rejectionMu.Unlock()
-			
+
 			mu.Lock()
 			processed++
 			mu.Unlock()
@@ -116,7 +118,7 @@ func AnalyzeBatch(config AnalysisPackageConfig) ([]SymbolStats, error) {
 				// Save to database immediately if requested
 				if config.SaveToDB {
 					histogramJSON, _ := json.Marshal(stats.Histogram)
-					db.SaveAnalysisResult(
+					db.SaveAnalysisResult(context.Background(),
 						config.UserID, config.PackageID, ticker,
 						stats.Count, stats.Mean, stats.StdDev, stats.Variance,
 						stats.Min, stats.Max, histogramJSON,
@@ -140,7 +142,7 @@ func AnalyzeBatch(config AnalysisPackageConfig) ([]SymbolStats, error) {
 	wg.Wait()
 
 	logf("%s Batch analysis complete: %d/%d symbols with YoY data\n", config.PackageID, len(results), len(config.Tickers))
-	
+
 	// Log rejection statistics
 	totalRejected := 0
 	for _, count := range rejectionReasons {
@@ -153,7 +155,7 @@ func AnalyzeBatch(config AnalysisPackageConfig) ([]SymbolStats, error) {
 			logf("%s   - %s: %d (%.1f%%)\n", config.PackageID, reason, count, percentage)
 		}
 	}
-	
+
 	if config.SaveToDB {
 		logf("%s All results saved to database\n", config.PackageID)
 	}

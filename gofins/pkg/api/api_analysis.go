@@ -34,7 +34,7 @@ func (s *Server) handleAnalyses(w http.ResponseWriter, r *http.Request) {
 // handleListAnalyses lists all analysis packages
 func (s *Server) handleListAnalyses(w http.ResponseWriter, r *http.Request) {
 	userID := getUserID(r)
-	packages, err := analysis.ListPackages(userID)
+	packages, err := analysis.ListPackages(r.Context(), userID)
 	if err != nil {
 		http.Error(w, "Failed to list analyses: "+err.Error(), http.StatusInternalServerError)
 		return
@@ -58,7 +58,7 @@ func (s *Server) handleGetAnalysis(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	userID := getUserID(r)
-	pkg, err := analysis.GetPackage(userID, packageID)
+	pkg, err := analysis.GetPackage(r.Context(), userID, packageID)
 	if err != nil {
 		http.Error(w, "Failed to get analysis: "+err.Error(), http.StatusInternalServerError)
 		return
@@ -93,7 +93,7 @@ func (s *Server) handleUpdateAnalysis(w http.ResponseWriter, r *http.Request) {
 	}
 
 	userID := getUserID(r)
-	pkg, err := analysis.UpdatePackageName(userID, packageID, req.Name)
+	pkg, err := analysis.UpdatePackageName(r.Context(), userID, packageID, req.Name)
 	if err != nil {
 		http.Error(w, "Failed to update analysis: "+err.Error(), http.StatusInternalServerError)
 		return
@@ -117,7 +117,7 @@ func (s *Server) handleDeleteAnalysis(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	userID := getUserID(r)
-	err := analysis.DeletePackage(userID, packageID)
+	err := analysis.DeletePackage(r.Context(), userID, packageID)
 	if err != nil {
 		http.Error(w, "Failed to delete analysis: "+err.Error(), http.StatusInternalServerError)
 		return
@@ -136,7 +136,7 @@ func (s *Server) handleAnalysisResults(w http.ResponseWriter, r *http.Request) {
 	}
 
 	userID := getUserID(r)
-	results, err := db.GetAnalysisResults(userID, packageID)
+	results, err := db.GetAnalysisResults(r.Context(), userID, packageID)
 	if err != nil {
 		http.Error(w, "Failed to get results: "+err.Error(), http.StatusInternalServerError)
 		return

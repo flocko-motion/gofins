@@ -1,14 +1,15 @@
 package analysis
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 	"time"
 
 	"github.com/flocko-motion/gofins/pkg/db"
-	"github.com/flocko-motion/gofins/pkg/types"
 	"github.com/flocko-motion/gofins/pkg/f"
+	"github.com/flocko-motion/gofins/pkg/types"
 	"github.com/google/uuid"
 )
 
@@ -63,7 +64,7 @@ const (
 )
 
 // CreatePackage creates a new analysis package and processes all symbols
-func CreatePackage(database *db.DB, config AnalysisPackageConfig) (string, error) {
+func CreatePackage(ctx context.Context, database *db.DB, config AnalysisPackageConfig) (string, error) {
 	// Generate package ID
 	config.PackageID = uuid.New().String()
 	config.PathPlots = PathPlots(config.PackageID)
@@ -85,16 +86,16 @@ func CreatePackage(database *db.DB, config AnalysisPackageConfig) (string, error
 		Status:       "processing",
 	}
 
-	if err := db.CreateAnalysisPackage(pkg); err != nil {
+	if err := db.CreateAnalysisPackage(ctx, pkg); err != nil {
 		return "", err
 	}
 
-	go processPackage(config)
+	go processPackage(ctx, config)
 
 	return config.PackageID, nil
 }
 
-func processPackage(config AnalysisPackageConfig) {
+func processPackage(ctx context.Context, config AnalysisPackageConfig) {
 	var err error
 	logf("Starting package processing: %s (ID: %s)\n", config.Name, config.PackageID)
 	logf("%s config raw: %+v\n", config.PackageID, config)
@@ -116,7 +117,7 @@ func processPackage(config AnalysisPackageConfig) {
 	config.Tickers, err = db.GetFilteredTickers(config.McapMin, config.InceptionMax)
 	if err != nil {
 		logf("ERROR: Failed to get filtered tickers: %v\n", err)
-		db.UpdateAnalysisPackageStatus(config.UserID, config.PackageID, "failed", 0)
+		db.UpdateAnalysisPackageStatus(ctx, config.UserID, config.PackageID, "failed", 0)
 		return
 	}
 
@@ -126,17 +127,17 @@ func processPackage(config AnalysisPackageConfig) {
 		logf("%s First %d tickers: %v\n", config.PackageID, sampleSize, config.Tickers[:sampleSize])
 	} else {
 		logf("%s WARNING: No tickers found, nothing to analyze\n", config.PackageID)
-		db.UpdateAnalysisPackageStatus(config.UserID, config.PackageID, "ready", 0)
+		db.UpdateAnalysisPackageStatus(ctx, config.UserID, config.PackageID, "ready", 0)
 		return
 	}
 
 	logf("%s Starting batch analysis of %d symbols...\n", config.PackageID, len(config.Tickers))
 	config.SaveToDB = true // Enable database saving
 	startTime := time.Now()
-	results, err := AnalyzeBatch(config)
+	results, err := AnalyzeBatch(ctx, config)
 	if err != nil {
 		logf("%s ERROR: Batch analysis failed: %v\n", config.PackageID, err)
-		db.UpdateAnalysisPackageStatus(config.UserID, config.PackageID, "failed", 0)
+		db.UpdateAnalysisPackageStatus(ctx, config.UserID, config.PackageID, "failed", 0)
 		return
 	}
 	elapsed := time.Since(startTime)
@@ -147,6 +148,6 @@ func processPackage(config AnalysisPackageConfig) {
 	}
 
 	logf("%s Package processing complete: %d results\n", config.PackageID, len(results))
-	db.UpdateAnalysisPackageStatus(config.UserID, config.PackageID, "ready", len(results))
+	db.UpdateAnalysisPackageStatus(ctx, config.UserID, config.PackageID, "ready", len(results))
 	logf("%s Package %s is now ready\n", config.PackageID, config.PackageID)
 }

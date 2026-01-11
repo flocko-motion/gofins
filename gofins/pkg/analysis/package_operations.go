@@ -1,6 +1,7 @@
 package analysis
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -11,28 +12,28 @@ import (
 )
 
 // GetPackage retrieves a package by ID
-func GetPackage(userID uuid.UUID, packageID string) (*types.AnalysisPackage, error) {
-	return db.GetAnalysisPackage(userID, packageID)
+func GetPackage(ctx context.Context, userID uuid.UUID, packageID string) (*types.AnalysisPackage, error) {
+	return db.GetAnalysisPackage(ctx, userID, packageID)
 }
 
 // ListPackages returns all analysis packages
-func ListPackages(userID uuid.UUID) ([]types.AnalysisPackage, error) {
-	return db.ListAnalysisPackages(userID)
+func ListPackages(ctx context.Context, userID uuid.UUID) ([]types.AnalysisPackage, error) {
+	return db.ListAnalysisPackages(ctx, userID)
 }
 
 // UpdatePackageName updates the name of an analysis package
-func UpdatePackageName(userID uuid.UUID, packageID string, name string) (*types.AnalysisPackage, error) {
+func UpdatePackageName(ctx context.Context, userID uuid.UUID, packageID string, name string) (*types.AnalysisPackage, error) {
 	// Check if package exists
-	pkg, err := db.GetAnalysisPackage(userID, packageID)
+	pkg, err := db.GetAnalysisPackage(ctx, userID, packageID)
 	if err != nil {
 		return nil, err
 	}
 	if pkg == nil {
-		return nil, nil // Not found
+		return nil, fmt.Errorf("package not found")
 	}
 
 	// Update in database
-	if err := db.UpdateAnalysisPackageName(userID, packageID, name); err != nil {
+	if err := db.UpdateAnalysisPackageName(ctx, userID, packageID, name); err != nil {
 		return nil, err
 	}
 
@@ -42,9 +43,9 @@ func UpdatePackageName(userID uuid.UUID, packageID string, name string) (*types.
 }
 
 // DeletePackage deletes an analysis package and its associated files
-func DeletePackage(userID uuid.UUID, packageID string) error {
+func DeletePackage(ctx context.Context, userID uuid.UUID, packageID string) error {
 	// First, check if package exists
-	pkg, err := db.GetAnalysisPackage(userID, packageID)
+	pkg, err := db.GetAnalysisPackage(ctx, userID, packageID)
 	if err != nil {
 		return fmt.Errorf("failed to get package: %w", err)
 	}
@@ -53,7 +54,7 @@ func DeletePackage(userID uuid.UUID, packageID string) error {
 	}
 
 	// Delete from database first
-	if err := db.DeleteAnalysisPackage(userID, packageID); err != nil {
+	if err := db.DeleteAnalysisPackage(ctx, userID, packageID); err != nil {
 		return fmt.Errorf("failed to delete package from database: %w", err)
 	}
 

@@ -42,7 +42,7 @@ func (s *Server) userMiddleware(next http.Handler) http.Handler {
 			return
 		}
 		if user == nil {
-			// User doesn't exist, create them
+			// User doesn't exist, create it
 			user, err = db.CreateUser(r.Context(), username)
 			if err != nil {
 				fmt.Printf("[API] Error creating user '%s': %v\n", username, err)

@@ -142,7 +142,7 @@ func (s *Server) handleCreateAnalysis(w http.ResponseWriter, r *http.Request) {
 
 	fmt.Printf("[API] Creating analysis package with config: %+v\n", config)
 
-	packageID, err := analysis.CreatePackage(s.db, config)
+	packageID, err := analysis.CreatePackage(r.Context(), s.db, config)
 	if err != nil {
 		_ = db.LogError("api.analysis", "database", "Failed to create analysis package", f.Ptr(err.Error()))
 		http.Error(w, "Failed to create package: "+err.Error(), http.StatusInternalServerError)

@@ -95,7 +95,7 @@ var benchAnalysisCmd = &cobra.Command{
 		fmt.Println("=== Method 2: Batch Analysis ===")
 		startBatch := time.Now()
 
-		results, err := analysis.AnalyzeBatch(analysis.AnalysisPackageConfig{
+		results, err := analysis.AnalyzeBatch(cmd.Context(), analysis.AnalysisPackageConfig{
 			Tickers:    tickers,
 			TimeFrom:   from,
 			TimeTo:     to,
