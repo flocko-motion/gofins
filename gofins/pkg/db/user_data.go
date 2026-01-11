@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"time"
 
+	"github.com/flocko-motion/gofins/pkg/db/generated"
 	"github.com/flocko-motion/gofins/pkg/f"
 	"github.com/flocko-motion/gofins/pkg/types"
 	"github.com/google/uuid"
@@ -12,12 +13,9 @@ import (
 
 // CreateUser creates a new user with a UUID derived from their name
 // If this is the first user, they are made admin
-func CreateUser(name string) (*types.User, error) {
-	db := Db()
-
+func CreateUser(ctx context.Context, name string) (*types.User, error) {
 	// Check if this is the first user
-	var userCount int
-	err := db.conn.QueryRow("SELECT COUNT(*) FROM users").Scan(&userCount)
+	userCount, err := genQ().CountUsers(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -26,60 +24,55 @@ func CreateUser(name string) (*types.User, error) {
 	// Generate stable UUID from username (hash-based)
 	userID := f.StringToUUID(name)
 
-	var user types.User
-	err = db.conn.QueryRow(`
-		INSERT INTO users (id, name, created_at, is_admin)
-		VALUES ($1, $2, NOW(), $3)
-		RETURNING id, name, created_at, is_admin
-	`, userID, name, isAdmin).Scan(&user.ID, &user.Name, &user.CreatedAt, &user.IsAdmin)
-
+	genUser, err := genQ().CreateUser(ctx, generated.CreateUserParams{
+		ID:      userID,
+		Name:    name,
+		IsAdmin: isAdmin,
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	return &user, nil
+	return &types.User{
+		ID:        genUser.ID,
+		Name:      genUser.Name,
+		CreatedAt: genUser.CreatedAt,
+		IsAdmin:   genUser.IsAdmin,
+	}, nil
 }
 
 // GetUser retrieves a user by name
-func GetUser(name string) (*types.User, error) {
-	db := Db()
-
-	var user types.User
-	err := db.conn.QueryRow(`
-		SELECT id, name, created_at, is_admin
-		FROM users
-		WHERE name = $1
-	`, name).Scan(&user.ID, &user.Name, &user.CreatedAt, &user.IsAdmin)
-
+func GetUser(ctx context.Context, name string) (*types.User, error) {
+	genUser, err := genQ().GetUser(ctx, name)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, err
 	}
-
-	return &user, nil
+	return &types.User{
+		ID:        genUser.ID,
+		Name:      genUser.Name,
+		CreatedAt: genUser.CreatedAt,
+		IsAdmin:   genUser.IsAdmin,
+	}, nil
 }
 
 // GetUserByID retrieves a user by UUID
-func GetUserByID(id uuid.UUID) (*types.User, error) {
-	db := Db()
-
-	var user types.User
-	err := db.conn.QueryRow(`
-		SELECT id, name, created_at, is_admin
-		FROM users
-		WHERE id = $1
-	`, id).Scan(&user.ID, &user.Name, &user.CreatedAt, &user.IsAdmin)
-
+func GetUserByID(ctx context.Context, id uuid.UUID) (*types.User, error) {
+	genUser, err := genQ().GetUserByID(ctx, id)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, err
 	}
-
-	return &user, nil
+	return &types.User{
+		ID:        genUser.ID,
+		Name:      genUser.Name,
+		CreatedAt: genUser.CreatedAt,
+		IsAdmin:   genUser.IsAdmin,
+	}, nil
 }
 
 // ListUsers returns all users
@@ -88,15 +81,23 @@ func ListUsers(ctx context.Context) ([]types.User, error) {
 	if err != nil {
 		return nil, err
 	}
-	return ToUsers(genUsers), nil
+
+	users := make([]types.User, len(genUsers))
+	for i, u := range genUsers {
+		users[i] = types.User{
+			ID:        u.ID,
+			Name:      u.Name,
+			CreatedAt: u.CreatedAt,
+			IsAdmin:   u.IsAdmin,
+		}
+	}
+	return users, nil
 }
 
 // DeleteUser deletes a user and all their data (ratings, favorites)
-func DeleteUser(name string) error {
-	db := Db()
-
+func DeleteUser(ctx context.Context, name string) error {
 	// Get user to find their UUID
-	user, err := GetUser(name)
+	user, err := GetUser(ctx, name)
 	if err != nil {
 		return err
 	}
@@ -105,24 +106,26 @@ func DeleteUser(name string) error {
 	}
 
 	// Start transaction
-	tx, err := db.conn.Begin()
+	tx, err := Db().conn.Begin()
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
 
+	q := genQ().WithTx(tx)
+
 	// Delete user's ratings
-	if _, err := tx.Exec(`DELETE FROM user_ratings WHERE user_id = $1`, user.ID); err != nil {
+	if err := q.DeleteUserRatings(ctx, user.ID); err != nil {
 		return err
 	}
 
 	// Delete user's favorites
-	if _, err := tx.Exec(`DELETE FROM user_favorites WHERE user_id = $1`, user.ID); err != nil {
+	if err := q.DeleteUserFavorites(ctx, user.ID); err != nil {
 		return err
 	}
 
 	// Delete user
-	if _, err := tx.Exec(`DELETE FROM users WHERE id = $1`, user.ID); err != nil {
+	if err := q.DeleteUser(ctx, user.ID); err != nil {
 		return err
 	}
 
@@ -131,22 +134,20 @@ func DeleteUser(name string) error {
 }
 
 // UpdateUserAdmin updates the admin status of a user by name or UUID
-func UpdateUserAdmin(nameOrID string, isAdmin bool) (*types.User, error) {
-	db := Db()
-
+func UpdateUserAdmin(ctx context.Context, nameOrID string, isAdmin bool) (*types.User, error) {
 	// Try to parse as UUID first
 	userID, err := uuid.Parse(nameOrID)
 	var user *types.User
 
 	if err == nil {
 		// It's a valid UUID, get by ID
-		user, err = GetUserByID(userID)
+		user, err = GetUserByID(ctx, userID)
 		if err != nil {
 			return nil, err
 		}
 	} else {
 		// Not a UUID, treat as name
-		user, err = GetUser(nameOrID)
+		user, err = GetUser(ctx, nameOrID)
 		if err != nil {
 			return nil, err
 		}
@@ -157,18 +158,20 @@ func UpdateUserAdmin(nameOrID string, isAdmin bool) (*types.User, error) {
 	}
 
 	// Update admin status
-	err = db.conn.QueryRow(`
-		UPDATE users
-		SET is_admin = $1
-		WHERE id = $2
-		RETURNING id, name, created_at, is_admin
-	`, isAdmin, user.ID).Scan(&user.ID, &user.Name, &user.CreatedAt, &user.IsAdmin)
-
+	genUser, err := genQ().UpdateUserAdmin(ctx, generated.UpdateUserAdminParams{
+		IsAdmin: isAdmin,
+		ID:      user.ID,
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	return user, nil
+	return &types.User{
+		ID:        genUser.ID,
+		Name:      genUser.Name,
+		CreatedAt: genUser.CreatedAt,
+		IsAdmin:   genUser.IsAdmin,
+	}, nil
 }
 
 // UserRating represents a rating given to a symbol
@@ -181,168 +184,188 @@ type UserRating struct {
 }
 
 // ToggleFavorite adds or removes a symbol from favorites
-func ToggleFavorite(userID uuid.UUID, ticker string) (bool, error) {
-	db := Db()
+func ToggleFavorite(ctx context.Context, userID uuid.UUID, ticker string) (bool, error) {
 	// Check if already favorited
-	var exists bool
-	err := db.conn.QueryRow("SELECT EXISTS(SELECT 1 FROM user_favorites WHERE user_id = $1 AND ticker = $2)", userID, ticker).Scan(&exists)
+	exists, err := genQ().IsFavorite(ctx, generated.IsFavoriteParams{
+		UserID: userID,
+		Ticker: ticker,
+	})
 	if err != nil {
 		return false, err
 	}
 
 	if exists {
 		// Remove from favorites
-		_, err = db.conn.Exec("DELETE FROM user_favorites WHERE user_id = $1 AND ticker = $2", userID, ticker)
+		err = genQ().RemoveFavorite(ctx, generated.RemoveFavoriteParams{
+			UserID: userID,
+			Ticker: ticker,
+		})
 		return false, err
 	} else {
 		// Add to favorites
-		_, err = db.conn.Exec("INSERT INTO user_favorites (user_id, ticker) VALUES ($1, $2)", userID, ticker)
+		err = genQ().AddFavorite(ctx, generated.AddFavoriteParams{
+			UserID: userID,
+			Ticker: ticker,
+		})
 		return true, err
 	}
 }
 
 // IsFavorite checks if a symbol is favorited
-func IsFavorite(userID uuid.UUID, ticker string) (bool, error) {
-	db := Db()
-	var exists bool
-	err := db.conn.QueryRow("SELECT EXISTS(SELECT 1 FROM user_favorites WHERE user_id = $1 AND ticker = $2)", userID, ticker).Scan(&exists)
-	return exists, err
+func IsFavorite(ctx context.Context, userID uuid.UUID, ticker string) (bool, error) {
+	return genQ().IsFavorite(ctx, generated.IsFavoriteParams{
+		UserID: userID,
+		Ticker: ticker,
+	})
 }
 
 // GetFavorites returns all favorited tickers
-func GetFavorites(userID uuid.UUID) ([]string, error) {
-	db := Db()
-	rows, err := db.conn.Query("SELECT ticker FROM user_favorites WHERE user_id = $1 ORDER BY created_at DESC", userID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var tickers []string
-	for rows.Next() {
-		var ticker string
-		if err := rows.Scan(&ticker); err != nil {
-			return nil, err
-		}
-		tickers = append(tickers, ticker)
-	}
-	return tickers, rows.Err()
+func GetFavorites(ctx context.Context, userID uuid.UUID) ([]string, error) {
+	return genQ().GetFavorites(ctx, userID)
 }
 
 // AddRating adds a new rating for a symbol
-func AddRating(userID uuid.UUID, ticker string, rating int, notes *string) (*UserRating, error) {
-	db := Db()
+func AddRating(ctx context.Context, userID uuid.UUID, ticker string, rating int, notes *string) (*UserRating, error) {
 	if rating < -5 || rating > 5 {
 		return nil, sql.ErrNoRows
 	}
 
-	var r UserRating
-	err := db.conn.QueryRow(
-		"INSERT INTO user_ratings (user_id, ticker, rating, notes) VALUES ($1, $2, $3, $4) RETURNING id, ticker, rating, notes, created_at",
-		userID, ticker, rating, notes,
-	).Scan(&r.ID, &r.Ticker, &r.Rating, &r.Notes, &r.CreatedAt)
+	var sqlNotes sql.NullString
+	if notes != nil {
+		sqlNotes = sql.NullString{String: *notes, Valid: true}
+	}
 
+	genRating, err := genQ().AddRating(ctx, generated.AddRatingParams{
+		UserID: userID,
+		Ticker: ticker,
+		Rating: int32(rating),
+		Notes:  sqlNotes,
+	})
 	if err != nil {
 		return nil, err
 	}
-	return &r, nil
+
+	var resultNotes *string
+	if genRating.Notes.Valid {
+		resultNotes = &genRating.Notes.String
+	}
+
+	return &UserRating{
+		ID:        int(genRating.ID),
+		Ticker:    genRating.Ticker,
+		Rating:    int(genRating.Rating),
+		Notes:     resultNotes,
+		CreatedAt: genRating.CreatedAt,
+	}, nil
 }
 
 // GetLatestRating returns the most recent rating for a symbol
-func GetLatestRating(userID uuid.UUID, ticker string) (*UserRating, error) {
-	db := Db()
-	var r UserRating
-	err := db.conn.QueryRow(
-		"SELECT id, ticker, rating, notes, created_at FROM user_ratings WHERE user_id = $1 AND ticker = $2 ORDER BY created_at DESC LIMIT 1",
-		userID, ticker,
-	).Scan(&r.ID, &r.Ticker, &r.Rating, &r.Notes, &r.CreatedAt)
-
+func GetLatestRating(ctx context.Context, userID uuid.UUID, ticker string) (*UserRating, error) {
+	genRating, err := genQ().GetLatestRating(ctx, generated.GetLatestRatingParams{
+		UserID: userID,
+		Ticker: ticker,
+	})
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, err
 	}
-	return &r, nil
+
+	var resultNotes *string
+	if genRating.Notes.Valid {
+		resultNotes = &genRating.Notes.String
+	}
+
+	return &UserRating{
+		ID:        int(genRating.ID),
+		Ticker:    genRating.Ticker,
+		Rating:    int(genRating.Rating),
+		Notes:     resultNotes,
+		CreatedAt: genRating.CreatedAt,
+	}, nil
 }
 
 // GetRatingHistory returns all ratings for a symbol
-func GetRatingHistory(userID uuid.UUID, ticker string) ([]UserRating, error) {
-	db := Db()
-	rows, err := db.conn.Query(
-		"SELECT id, ticker, rating, notes, created_at FROM user_ratings WHERE user_id = $1 AND ticker = $2 ORDER BY created_at DESC",
-		userID, ticker,
-	)
+func GetRatingHistory(ctx context.Context, userID uuid.UUID, ticker string) ([]UserRating, error) {
+	genRatings, err := genQ().GetRatingHistory(ctx, generated.GetRatingHistoryParams{
+		UserID: userID,
+		Ticker: ticker,
+	})
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
 
-	var ratings []UserRating
-	for rows.Next() {
-		var r UserRating
-		if err := rows.Scan(&r.ID, &r.Ticker, &r.Rating, &r.Notes, &r.CreatedAt); err != nil {
-			return nil, err
+	result := make([]UserRating, len(genRatings))
+	for i, r := range genRatings {
+		var resultNotes *string
+		if r.Notes.Valid {
+			resultNotes = &r.Notes.String
 		}
-		ratings = append(ratings, r)
+		result[i] = UserRating{
+			ID:        int(r.ID),
+			Ticker:    r.Ticker,
+			Rating:    int(r.Rating),
+			Notes:     resultNotes,
+			CreatedAt: r.CreatedAt,
+		}
 	}
-	return ratings, rows.Err()
+	return result, nil
 }
 
 // GetAllLatestRatings returns the latest rating for each rated symbol
-func GetAllLatestRatings(userID uuid.UUID) (map[string]*UserRating, error) {
-	db := Db()
-	rows, err := db.conn.Query(`
-		SELECT DISTINCT ON (ticker) id, ticker, rating, notes, created_at
-		FROM user_ratings
-		WHERE user_id = $1
-		ORDER BY ticker, created_at DESC
-	`, userID)
+func GetAllLatestRatings(ctx context.Context, userID uuid.UUID) (map[string]*UserRating, error) {
+	genRatings, err := genQ().GetAllLatestRatings(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
 
 	ratings := make(map[string]*UserRating)
-	for rows.Next() {
-		var r UserRating
-		if err := rows.Scan(&r.ID, &r.Ticker, &r.Rating, &r.Notes, &r.CreatedAt); err != nil {
-			return nil, err
+	for _, r := range genRatings {
+		var resultNotes *string
+		if r.Notes.Valid {
+			resultNotes = &r.Notes.String
 		}
-		ratings[r.Ticker] = &r
+		rating := UserRating{
+			ID:        int(r.ID),
+			Ticker:    r.Ticker,
+			Rating:    int(r.Rating),
+			Notes:     resultNotes,
+			CreatedAt: r.CreatedAt,
+		}
+		ratings[rating.Ticker] = &rating
 	}
-	return ratings, rows.Err()
+	return ratings, nil
 }
 
 // DeleteRating deletes a rating by ID (for the given user)
-func DeleteRating(userID uuid.UUID, id int) error {
-	db := Db()
-	_, err := db.conn.Exec("DELETE FROM user_ratings WHERE user_id = $1 AND id = $2", userID, id)
-	return err
+func DeleteRating(ctx context.Context, userID uuid.UUID, id int) error {
+	return genQ().DeleteRating(ctx, generated.DeleteRatingParams{
+		UserID: userID,
+		ID:     int32(id),
+	})
 }
 
 // GetAllNotesChronological returns all ratings that have notes, sorted by creation time (newest first)
-func GetAllNotesChronological(userID uuid.UUID) ([]UserRating, error) {
-	db := Db()
-	rows, err := db.conn.Query(`
-		SELECT id, ticker, rating, notes, created_at
-		FROM user_ratings
-		WHERE user_id = $1 AND notes IS NOT NULL AND notes != ''
-		ORDER BY created_at DESC
-	`, userID)
+func GetAllNotesChronological(ctx context.Context, userID uuid.UUID) ([]UserRating, error) {
+	genRatings, err := genQ().GetAllNotesChronological(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
 
-	var notes []UserRating
-	for rows.Next() {
-		var r UserRating
-		if err := rows.Scan(&r.ID, &r.Ticker, &r.Rating, &r.Notes, &r.CreatedAt); err != nil {
-			return nil, err
+	result := make([]UserRating, len(genRatings))
+	for i, r := range genRatings {
+		var resultNotes *string
+		if r.Notes.Valid {
+			resultNotes = &r.Notes.String
 		}
-		notes = append(notes, r)
+		result[i] = UserRating{
+			ID:        int(r.ID),
+			Ticker:    r.Ticker,
+			Rating:    int(r.Rating),
+			Notes:     resultNotes,
+			CreatedAt: r.CreatedAt,
+		}
 	}
-
-	return notes, rows.Err()
+	return result, nil
 }

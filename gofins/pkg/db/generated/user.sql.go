@@ -7,9 +7,75 @@ package generated
 
 import (
 	"context"
+	"database/sql"
+	"time"
 
 	"github.com/google/uuid"
 )
+
+const addFavorite = `-- name: AddFavorite :exec
+INSERT INTO user_favorites (user_id, ticker) VALUES ($1, $2)
+`
+
+type AddFavoriteParams struct {
+	UserID uuid.UUID `json:"user_id"`
+	Ticker string    `json:"ticker"`
+}
+
+func (q *Queries) AddFavorite(ctx context.Context, arg AddFavoriteParams) error {
+	_, err := q.db.ExecContext(ctx, addFavorite, arg.UserID, arg.Ticker)
+	return err
+}
+
+const addRating = `-- name: AddRating :one
+INSERT INTO user_ratings (user_id, ticker, rating, notes)
+VALUES ($1, $2, $3, $4)
+RETURNING id, ticker, rating, notes, created_at
+`
+
+type AddRatingParams struct {
+	UserID uuid.UUID      `json:"user_id"`
+	Ticker string         `json:"ticker"`
+	Rating int32          `json:"rating"`
+	Notes  sql.NullString `json:"notes"`
+}
+
+type AddRatingRow struct {
+	ID        int32          `json:"id"`
+	Ticker    string         `json:"ticker"`
+	Rating    int32          `json:"rating"`
+	Notes     sql.NullString `json:"notes"`
+	CreatedAt time.Time      `json:"created_at"`
+}
+
+func (q *Queries) AddRating(ctx context.Context, arg AddRatingParams) (AddRatingRow, error) {
+	row := q.db.QueryRowContext(ctx, addRating,
+		arg.UserID,
+		arg.Ticker,
+		arg.Rating,
+		arg.Notes,
+	)
+	var i AddRatingRow
+	err := row.Scan(
+		&i.ID,
+		&i.Ticker,
+		&i.Rating,
+		&i.Notes,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const countUsers = `-- name: CountUsers :one
+SELECT COUNT(*) FROM users
+`
+
+func (q *Queries) CountUsers(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countUsers)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
 
 const createUser = `-- name: CreateUser :one
 INSERT INTO users (id, name, created_at, is_admin)
@@ -20,7 +86,7 @@ RETURNING id, name, created_at, is_admin
 type CreateUserParams struct {
 	ID      uuid.UUID `json:"id"`
 	Name    string    `json:"name"`
-	IsAdmin bool      `json:"is_admin"`
+	IsAdmin bool      `json:"isAdmin,omitempty"`
 }
 
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
@@ -33,6 +99,245 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.IsAdmin,
 	)
 	return i, err
+}
+
+const deleteRating = `-- name: DeleteRating :exec
+DELETE FROM user_ratings WHERE user_id = $1 AND id = $2
+`
+
+type DeleteRatingParams struct {
+	UserID uuid.UUID `json:"user_id"`
+	ID     int32     `json:"id"`
+}
+
+func (q *Queries) DeleteRating(ctx context.Context, arg DeleteRatingParams) error {
+	_, err := q.db.ExecContext(ctx, deleteRating, arg.UserID, arg.ID)
+	return err
+}
+
+const deleteUser = `-- name: DeleteUser :exec
+DELETE FROM users WHERE id = $1
+`
+
+func (q *Queries) DeleteUser(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.ExecContext(ctx, deleteUser, id)
+	return err
+}
+
+const deleteUserFavorites = `-- name: DeleteUserFavorites :exec
+DELETE FROM user_favorites WHERE user_id = $1
+`
+
+func (q *Queries) DeleteUserFavorites(ctx context.Context, userID uuid.UUID) error {
+	_, err := q.db.ExecContext(ctx, deleteUserFavorites, userID)
+	return err
+}
+
+const deleteUserRatings = `-- name: DeleteUserRatings :exec
+DELETE FROM user_ratings WHERE user_id = $1
+`
+
+func (q *Queries) DeleteUserRatings(ctx context.Context, userID uuid.UUID) error {
+	_, err := q.db.ExecContext(ctx, deleteUserRatings, userID)
+	return err
+}
+
+const getAllLatestRatings = `-- name: GetAllLatestRatings :many
+SELECT DISTINCT ON (ticker) id, ticker, rating, notes, created_at
+FROM user_ratings
+WHERE user_id = $1
+ORDER BY ticker, created_at DESC
+`
+
+type GetAllLatestRatingsRow struct {
+	ID        int32          `json:"id"`
+	Ticker    string         `json:"ticker"`
+	Rating    int32          `json:"rating"`
+	Notes     sql.NullString `json:"notes"`
+	CreatedAt time.Time      `json:"created_at"`
+}
+
+func (q *Queries) GetAllLatestRatings(ctx context.Context, userID uuid.UUID) ([]GetAllLatestRatingsRow, error) {
+	rows, err := q.db.QueryContext(ctx, getAllLatestRatings, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetAllLatestRatingsRow{}
+	for rows.Next() {
+		var i GetAllLatestRatingsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Ticker,
+			&i.Rating,
+			&i.Notes,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getAllNotesChronological = `-- name: GetAllNotesChronological :many
+SELECT id, ticker, rating, notes, created_at
+FROM user_ratings
+WHERE user_id = $1 AND notes IS NOT NULL AND notes != ''
+ORDER BY created_at DESC
+`
+
+type GetAllNotesChronologicalRow struct {
+	ID        int32          `json:"id"`
+	Ticker    string         `json:"ticker"`
+	Rating    int32          `json:"rating"`
+	Notes     sql.NullString `json:"notes"`
+	CreatedAt time.Time      `json:"created_at"`
+}
+
+func (q *Queries) GetAllNotesChronological(ctx context.Context, userID uuid.UUID) ([]GetAllNotesChronologicalRow, error) {
+	rows, err := q.db.QueryContext(ctx, getAllNotesChronological, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetAllNotesChronologicalRow{}
+	for rows.Next() {
+		var i GetAllNotesChronologicalRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Ticker,
+			&i.Rating,
+			&i.Notes,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getFavorites = `-- name: GetFavorites :many
+SELECT ticker FROM user_favorites WHERE user_id = $1 ORDER BY created_at DESC
+`
+
+func (q *Queries) GetFavorites(ctx context.Context, userID uuid.UUID) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, getFavorites, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []string{}
+	for rows.Next() {
+		var ticker string
+		if err := rows.Scan(&ticker); err != nil {
+			return nil, err
+		}
+		items = append(items, ticker)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getLatestRating = `-- name: GetLatestRating :one
+SELECT id, ticker, rating, notes, created_at
+FROM user_ratings
+WHERE user_id = $1 AND ticker = $2
+ORDER BY created_at DESC
+LIMIT 1
+`
+
+type GetLatestRatingParams struct {
+	UserID uuid.UUID `json:"user_id"`
+	Ticker string    `json:"ticker"`
+}
+
+type GetLatestRatingRow struct {
+	ID        int32          `json:"id"`
+	Ticker    string         `json:"ticker"`
+	Rating    int32          `json:"rating"`
+	Notes     sql.NullString `json:"notes"`
+	CreatedAt time.Time      `json:"created_at"`
+}
+
+func (q *Queries) GetLatestRating(ctx context.Context, arg GetLatestRatingParams) (GetLatestRatingRow, error) {
+	row := q.db.QueryRowContext(ctx, getLatestRating, arg.UserID, arg.Ticker)
+	var i GetLatestRatingRow
+	err := row.Scan(
+		&i.ID,
+		&i.Ticker,
+		&i.Rating,
+		&i.Notes,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getRatingHistory = `-- name: GetRatingHistory :many
+SELECT id, ticker, rating, notes, created_at
+FROM user_ratings
+WHERE user_id = $1 AND ticker = $2
+ORDER BY created_at DESC
+`
+
+type GetRatingHistoryParams struct {
+	UserID uuid.UUID `json:"user_id"`
+	Ticker string    `json:"ticker"`
+}
+
+type GetRatingHistoryRow struct {
+	ID        int32          `json:"id"`
+	Ticker    string         `json:"ticker"`
+	Rating    int32          `json:"rating"`
+	Notes     sql.NullString `json:"notes"`
+	CreatedAt time.Time      `json:"created_at"`
+}
+
+func (q *Queries) GetRatingHistory(ctx context.Context, arg GetRatingHistoryParams) ([]GetRatingHistoryRow, error) {
+	rows, err := q.db.QueryContext(ctx, getRatingHistory, arg.UserID, arg.Ticker)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetRatingHistoryRow{}
+	for rows.Next() {
+		var i GetRatingHistoryRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Ticker,
+			&i.Rating,
+			&i.Notes,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getUser = `-- name: GetUser :one
@@ -71,6 +376,22 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 	return i, err
 }
 
+const isFavorite = `-- name: IsFavorite :one
+SELECT EXISTS(SELECT 1 FROM user_favorites WHERE user_id = $1 AND ticker = $2)
+`
+
+type IsFavoriteParams struct {
+	UserID uuid.UUID `json:"user_id"`
+	Ticker string    `json:"ticker"`
+}
+
+func (q *Queries) IsFavorite(ctx context.Context, arg IsFavoriteParams) (bool, error) {
+	row := q.db.QueryRowContext(ctx, isFavorite, arg.UserID, arg.Ticker)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const listUsers = `-- name: ListUsers :many
 SELECT id, name, created_at, is_admin
 FROM users
@@ -103,4 +424,42 @@ func (q *Queries) ListUsers(ctx context.Context) ([]User, error) {
 		return nil, err
 	}
 	return items, nil
+}
+
+const removeFavorite = `-- name: RemoveFavorite :exec
+DELETE FROM user_favorites WHERE user_id = $1 AND ticker = $2
+`
+
+type RemoveFavoriteParams struct {
+	UserID uuid.UUID `json:"user_id"`
+	Ticker string    `json:"ticker"`
+}
+
+func (q *Queries) RemoveFavorite(ctx context.Context, arg RemoveFavoriteParams) error {
+	_, err := q.db.ExecContext(ctx, removeFavorite, arg.UserID, arg.Ticker)
+	return err
+}
+
+const updateUserAdmin = `-- name: UpdateUserAdmin :one
+UPDATE users
+SET is_admin = $1
+WHERE id = $2
+RETURNING id, name, created_at, is_admin
+`
+
+type UpdateUserAdminParams struct {
+	IsAdmin bool      `json:"isAdmin,omitempty"`
+	ID      uuid.UUID `json:"id"`
+}
+
+func (q *Queries) UpdateUserAdmin(ctx context.Context, arg UpdateUserAdminParams) (User, error) {
+	row := q.db.QueryRowContext(ctx, updateUserAdmin, arg.IsAdmin, arg.ID)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.CreatedAt,
+		&i.IsAdmin,
+	)
+	return i, err
 }

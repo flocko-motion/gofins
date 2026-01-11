@@ -13,7 +13,7 @@ func (s *Server) handleGetCurrentUser(w http.ResponseWriter, r *http.Request) {
 	userID := getUserID(r)
 
 	// Get user from database (includes is_admin from DB)
-	user, err := db.GetUserByID(userID)
+	user, err := db.GetUserByID(r.Context(), userID)
 	if err != nil {
 		fmt.Printf("[API] Error getting user by ID '%s': %v\n", userID, err)
 		_ = db.Db().LogError("api.get_current_user", "error", "Failed to get user by ID", map[string]interface{}{"user_id": userID.String(), "error": err.Error()})

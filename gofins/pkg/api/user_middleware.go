@@ -34,7 +34,7 @@ func (s *Server) userMiddleware(next http.Handler) http.Handler {
 		}
 
 		// 4. Get or create user (auto-creates on first access)
-		user, err := db.GetUser(username)
+		user, err := db.GetUser(r.Context(), username)
 		if err != nil {
 			fmt.Printf("[API] Error getting user '%s': %v\n", username, err)
 			_ = db.Db().LogError("api.user_middleware", "error", "Failed to get user", map[string]interface{}{"username": username, "error": err.Error()})
@@ -43,7 +43,7 @@ func (s *Server) userMiddleware(next http.Handler) http.Handler {
 		}
 		if user == nil {
 			// User doesn't exist, create them
-			user, err = db.CreateUser(username)
+			user, err = db.CreateUser(r.Context(), username)
 			if err != nil {
 				fmt.Printf("[API] Error creating user '%s': %v\n", username, err)
 				_ = db.Db().LogError("api.user_middleware", "error", "Failed to create user", map[string]interface{}{"username": username, "error": err.Error()})
@@ -75,7 +75,7 @@ func (s *Server) adminOnlyMiddleware(next http.Handler) http.Handler {
 		userID := getUserID(r)
 
 		// Get user from database to check is_admin field
-		user, err := db.GetUserByID(userID)
+		user, err := db.GetUserByID(r.Context(), userID)
 		if err != nil {
 			fmt.Printf("[API] Error getting user for admin check: %v\n", err)
 			_ = db.Db().LogError("api.admin_middleware", "error", "Failed to get user", map[string]interface{}{"user_id": userID.String(), "error": err.Error()})
