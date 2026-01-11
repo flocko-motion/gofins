@@ -28,9 +28,9 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 		TotalSymbols:     f.First(db.CountSymbols()),
 		ActivelyTrading:  f.First(db.CountActivelyTrading()),
 		StaleProfiles:    f.First(db.CountStaleProfiles()),
-		StalePrices:      f.First(db.CountStalePrices()),
+		StalePrices:      f.First(db.CountStalePrices(r.Context())),
 		OldestProfile:    f.MaybeDateToMaybeString(f.First(db.GetOldestProfileUpdate()), timeFormat),
-		OldestPrice:      f.MaybeDateToMaybeString(f.First(db.GetOldestPriceUpdate()), timeFormat),
+		OldestPrice:      f.MaybeDateToMaybeString(f.First(db.GetOldestPriceUpdate(r.Context())), timeFormat),
 		ProfileThreshold: db.GetProfileThreshold().Format(timeFormat),
 		PriceThreshold:   db.GetPriceThreshold().Format(timeFormat),
 	}

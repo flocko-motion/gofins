@@ -194,7 +194,7 @@ func getSymbolsNeedingIncrementalUpdate(ctx context.Context, date time.Time, log
 	monthlyMap := make(map[string]bool)
 
 	// Get symbols with stale prices
-	symbols, err := db.GetSymbolsWithStalePrices(10000)
+	symbols, err := db.GetSymbolsWithStalePrices(ctx, 10000)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get stale symbols: %w", err)
 	}

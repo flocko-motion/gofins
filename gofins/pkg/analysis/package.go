@@ -114,7 +114,7 @@ func processPackage(ctx context.Context, config AnalysisPackageConfig) {
 	}
 
 	logf("%s Fetching filtered tickers...\n", config.PackageID)
-	config.Tickers, err = db.GetFilteredTickers(config.McapMin, config.InceptionMax)
+	config.Tickers, err = db.GetFilteredTickers(ctx, config.McapMin, config.InceptionMax)
 	if err != nil {
 		logf("ERROR: Failed to get filtered tickers: %v\n", err)
 		db.UpdateAnalysisPackageStatus(ctx, config.UserID, config.PackageID, "failed", 0)

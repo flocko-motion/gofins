@@ -1,34 +1,35 @@
 package db
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"time"
 
+	"github.com/flocko-motion/gofins/pkg/db/generated"
+	"github.com/flocko-motion/gofins/pkg/f"
 	"github.com/flocko-motion/gofins/pkg/types"
 	"github.com/lib/pq"
 )
 
 // GetOldestPriceDate returns the oldest price date for a ticker from monthly_prices
-func GetOldestPriceDate(ticker string) (*time.Time, error) {
-	db := Db()
-	query := `
-		SELECT MIN(date) 
-		FROM monthly_prices 
-		WHERE symbol_ticker = $1
-	`
-
-	var oldestDate *time.Time
-	err := db.conn.QueryRow(query, ticker).Scan(&oldestDate)
-
-	if err == sql.ErrNoRows || oldestDate == nil {
+func GetOldestPriceDate(ctx context.Context, ticker string) (*time.Time, error) {
+	result, err := genQ().GetOldestPriceDate(ctx, ticker)
+	if err == sql.ErrNoRows {
 		return nil, nil
 	}
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get oldest price date: %w", err)
 	}
 
-	return oldestDate, nil
+	// Handle interface{} return from sqlc
+	if result == nil {
+		return nil, nil
+	}
+	if t, ok := result.(time.Time); ok {
+		return &t, nil
+	}
+	return nil, nil
 }
 
 // AppendSinglePrice adds a single price point to the price history
@@ -289,46 +290,26 @@ func GetPricesBatch(tickers []string, from, to time.Time, interval types.PriceIn
 }
 
 // GetFilteredTickers returns tickers matching filters (for analysis packages)
-func GetFilteredTickers(mcapMin *int64, inceptionMax *time.Time) ([]string, error) {
-	db := Db()
-	// Be lenient on price table presence: allow any interval that has data.
-	// Still prioritize/reflect requested interval in logs.
-	query := `
-        SELECT DISTINCT s.ticker FROM symbols s
-        WHERE s.is_actively_trading = true
-          AND s.type = ANY($1)
-          AND ($2::BIGINT IS NULL OR s.market_cap >= $2)
-          AND ($3::TIMESTAMP IS NULL OR s.inception <= $3)
-          AND s.last_price_status = $4
-          AND s.last_price_update IS NOT NULL
-  		  AND s.exchange NOT IN ('OTC','PINK', 'GREY', 'OTCQB', 'OTCQX')
-        ORDER BY s.ticker
-    `
+func GetFilteredTickers(ctx context.Context, mcapMin *int64, inceptionMax *time.Time) ([]string, error) {
+	// Handle nullable parameters
+	var mcap int64
+	if mcapMin != nil {
+		mcap = *mcapMin
+	}
+	var inception time.Time
+	if inceptionMax != nil {
+		inception = *inceptionMax
+	}
 
-	// logf("[DB] GetFilteredTickers query (interval=%s): %s\n", string(interval), query)
-	// logf("[DB] Parameters: PriceUpdateTypes=%v, mcapMin=%v, inceptionMax=%v, status=%s\n", PriceUpdateTypes, mcapMin, inceptionMax, types.StatusOK)
-
-	rows, err := db.conn.Query(query, pq.Array(types.PriceUpdateTypes), mcapMin, inceptionMax, types.StatusOK)
+	tickers, err := genQ().GetFilteredTickers(ctx, generated.GetFilteredTickersParams{
+		Column1:         types.PriceUpdateTypes,
+		Column2:         mcap,
+		Column3:         inception,
+		LastPriceStatus: f.StringToNullString(types.StatusOK),
+	})
 	if err != nil {
 		logf("[DB] Query error: %v\n", err)
-		return nil, err
-	}
-	defer rows.Close()
-	logf("[DB] Query executed successfully, reading results...\n")
-
-	var tickers []string
-	for rows.Next() {
-		var ticker string
-		if err := rows.Scan(&ticker); err != nil {
-			logf("[DB] Error scanning ticker: %v\n", err)
-			return nil, err
-		}
-		tickers = append(tickers, ticker)
-	}
-
-	if err := rows.Err(); err != nil {
-		logf("[DB] Error iterating rows: %v\n", err)
-		return nil, err
+		return nil, fmt.Errorf("failed to get filtered tickers: %w", err)
 	}
 
 	logf("[DB] GetFilteredTickers returned %d tickers\n", len(tickers))
@@ -336,61 +317,36 @@ func GetFilteredTickers(mcapMin *int64, inceptionMax *time.Time) ([]string, erro
 }
 
 // GetTickersWithPrices returns tickers that have price data (limited to specified count)
-func GetTickersWithPrices(limit int) ([]string, error) {
-	db := Db()
-	query := `
-		SELECT DISTINCT symbol_ticker FROM monthly_prices 
-		ORDER BY symbol_ticker 
-		LIMIT $1
-	`
-
-	rows, err := db.conn.Query(query, limit)
+func GetTickersWithPrices(ctx context.Context, limit int) ([]string, error) {
+	tickers, err := genQ().GetTickersWithPrices(ctx, int32(limit))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get tickers with prices: %w", err)
 	}
-	defer rows.Close()
-
-	var tickers []string
-	for rows.Next() {
-		var ticker string
-		if err := rows.Scan(&ticker); err != nil {
-			return nil, err
-		}
-		tickers = append(tickers, ticker)
-	}
-
-	return tickers, rows.Err()
+	return tickers, nil
 }
 
 // GetSymbolsWithStalePrices returns symbols with outdated price data
 // Returns Symbol structs with only ticker and currency populated
-func GetSymbolsWithStalePrices(limit int) ([]types.Symbol, error) {
-	db := Db()
-	query := `
-		SELECT ticker, currency FROM symbols
-		WHERE (last_price_update IS NULL OR last_price_update < $1)
-		  AND is_actively_trading = true
-		  AND type = ANY($2)
-		ORDER BY last_price_update ASC NULLS FIRST
-		LIMIT $3
-	`
-
-	rows, err := db.conn.Query(query, GetPriceThreshold(), pq.Array(types.PriceUpdateTypes), limit)
+func GetSymbolsWithStalePrices(ctx context.Context, limit int) ([]types.Symbol, error) {
+	threshold := GetPriceThreshold()
+	rows, err := genQ().GetSymbolsWithStalePrices(ctx, generated.GetSymbolsWithStalePricesParams{
+		LastPriceUpdate: f.MaybeTimeToNullTime(&threshold),
+		Column2:         types.PriceUpdateTypes,
+		Limit:           int32(limit),
+	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get symbols with stale prices: %w", err)
 	}
-	defer rows.Close()
 
 	var symbols []types.Symbol
-	for rows.Next() {
-		var s types.Symbol
-		if err := rows.Scan(&s.Ticker, &s.Currency); err != nil {
-			return nil, err
-		}
-		symbols = append(symbols, s)
+	for _, row := range rows {
+		symbols = append(symbols, types.Symbol{
+			Ticker:   row.Ticker,
+			Currency: f.NullStringToMaybeString(row.Currency),
+		})
 	}
 
-	return symbols, rows.Err()
+	return symbols, nil
 }
 
 // GetPriceThreshold returns the threshold for stale prices (30 days ago)
@@ -401,33 +357,34 @@ func GetPriceThreshold() time.Time {
 }
 
 // CountStalePrices returns the count of stale prices
-func CountStalePrices() (int, error) {
-	db := Db()
-	query := `
-		SELECT COUNT(*) FROM symbols
-		WHERE (last_price_update IS NULL OR last_price_update < $1)
-		  AND is_actively_trading = true
-		  AND type = ANY($2)
-	`
-
-	var count int
-	err := db.conn.QueryRow(query, GetPriceThreshold(), pq.Array(types.PriceUpdateTypes)).Scan(&count)
-	return count, err
+func CountStalePrices(ctx context.Context) (int, error) {
+	threshold := GetPriceThreshold()
+	count, err := genQ().CountStalePrices(ctx, generated.CountStalePricesParams{
+		LastPriceUpdate: f.MaybeTimeToNullTime(&threshold),
+		Column2:         types.PriceUpdateTypes,
+	})
+	if err != nil {
+		return 0, fmt.Errorf("failed to count stale prices: %w", err)
+	}
+	return int(count), nil
 }
 
 // GetOldestPriceUpdate returns the oldest price update timestamp (only for actively trading symbols)
-func GetOldestPriceUpdate() (*time.Time, error) {
-	db := Db()
-	query := `
-		SELECT MIN(last_price_update) FROM symbols
-		WHERE last_price_update IS NOT NULL
-		  AND is_actively_trading = true
-	`
-
-	var oldest *time.Time
-	err := db.conn.QueryRow(query).Scan(&oldest)
+func GetOldestPriceUpdate(ctx context.Context) (*time.Time, error) {
+	result, err := genQ().GetOldestPriceUpdate(ctx)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
-	return oldest, err
+	if err != nil {
+		return nil, fmt.Errorf("failed to get oldest price update: %w", err)
+	}
+
+	// Handle interface{} return from sqlc
+	if result == nil {
+		return nil, nil
+	}
+	if t, ok := result.(time.Time); ok {
+		return &t, nil
+	}
+	return nil, nil
 }

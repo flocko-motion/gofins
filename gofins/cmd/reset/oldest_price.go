@@ -35,7 +35,7 @@ var oldestPriceCmd = &cobra.Command{
 			}
 
 			// Get oldest monthly price for this ticker
-			oldestDate, err := db.GetOldestPriceDate(ticker)
+			oldestDate, err := db.GetOldestPriceDate(cmd.Context(), ticker)
 			if err != nil {
 				_ = db.LogError(cmd.Context(), "reset.oldest_price", "database", "Failed to query oldest price", f.Ptr(err.Error()))
 				failed++

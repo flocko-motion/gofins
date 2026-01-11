@@ -15,7 +15,7 @@ var benchAnalysisCmd = &cobra.Command{
 	Short: "Benchmark YoY analysis performance",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// Get 100 stocks that have price data
-		tickers, err := db.GetTickersWithPrices(100)
+		tickers, err := db.GetTickersWithPrices(cmd.Context(), 100)
 		if err != nil {
 			return fmt.Errorf("failed to get tickers: %w", err)
 		}

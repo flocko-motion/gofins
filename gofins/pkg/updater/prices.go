@@ -156,7 +156,7 @@ func updatePricesImpl(ctx context.Context, log *log.Logger, config PriceUpdateCo
 	// Ensure last batch write completes before exit
 	defer batchWritePrices(nil, nil, nil, config, log)
 
-	totalStale, err := db.CountStalePrices()
+	totalStale, err := db.CountStalePrices(ctx)
 	if err != nil {
 		return err
 	}
@@ -175,7 +175,7 @@ func updatePricesImpl(ctx context.Context, log *log.Logger, config PriceUpdateCo
 			}
 		}
 
-		symbols, err := db.GetSymbolsWithStalePrices(batchSize)
+		symbols, err := db.GetSymbolsWithStalePrices(ctx, batchSize)
 		if err != nil {
 			return err
 		}
@@ -184,7 +184,7 @@ func updatePricesImpl(ctx context.Context, log *log.Logger, config PriceUpdateCo
 			return nil
 		}
 
-		currentStale, _ := db.CountStalePrices()
+		currentStale, _ := db.CountStalePrices(ctx)
 		log.Batch(currentStale, len(symbols))
 
 		startTime := time.Now()
@@ -261,7 +261,7 @@ func updatePricesImpl(ctx context.Context, log *log.Logger, config PriceUpdateCo
 		processedCount += len(symbols)
 
 		elapsed := time.Since(startTime)
-		currentStale, _ = db.CountStalePrices()
+		currentStale, _ = db.CountStalePrices(ctx)
 		log.Stats(len(stats.Updated), len(stats.NotFound), len(stats.Failed), currentStale, elapsed)
 		log.NotFoundList(stats.NotFound)
 		log.FailedList(stats.Failed)
