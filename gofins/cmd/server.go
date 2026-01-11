@@ -34,17 +34,17 @@ var serverCmd = &cobra.Command{
 		var database *db.DB
 		maxRetries := 30
 		retryDelay := time.Second
-		
+
 		for i := 0; i < maxRetries; i++ {
 			database = db.Db()
 			if database != nil {
 				break
 			}
-			
+
 			if i == 0 {
 				fmt.Println("⏳ Database not ready, retrying...")
 			}
-			
+
 			if i < maxRetries-1 {
 				time.Sleep(retryDelay)
 				// Exponential backoff, max 10 seconds
@@ -56,7 +56,7 @@ var serverCmd = &cobra.Command{
 				db.ResetConnection()
 			}
 		}
-		
+
 		if database == nil {
 			return fmt.Errorf("failed to connect to database after %d retries", maxRetries)
 		}
@@ -87,7 +87,7 @@ var serverCmd = &cobra.Command{
 
 		// Graceful shutdown
 		if err := db.PrepareForShutdown(); err != nil {
-			_ = db.LogError("server.shutdown", "database", "Failed to close database connection", f.Ptr(err.Error()))
+			_ = db.LogError(ctx, "server.shutdown", "database", "Failed to close database connection", f.Ptr(err.Error()))
 		}
 
 		fmt.Println("✓ Server stopped")

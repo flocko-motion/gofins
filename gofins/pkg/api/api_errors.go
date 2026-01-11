@@ -8,7 +8,7 @@ import (
 )
 
 func (s *Server) handleListErrors(w http.ResponseWriter, r *http.Request) {
-	errors, err := db.GetRecentErrors(100)
+	errors, err := db.GetRecentErrors(r.Context(), 100)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -19,7 +19,7 @@ func (s *Server) handleListErrors(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleClearErrors(w http.ResponseWriter, r *http.Request) {
-	count, err := db.ClearAllErrors()
+	count, err := db.ClearAllErrors(r.Context())
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

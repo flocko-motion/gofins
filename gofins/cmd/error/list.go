@@ -22,12 +22,12 @@ var listCmd = &cobra.Command{
 		var err error
 
 		if listSource != "" {
-			errors, err = db.GetErrorsBySource(listSource, listLimit)
+			errors, err = db.GetErrorsBySource(cmd.Context(), listSource, listLimit)
 			if err != nil {
 				return fmt.Errorf("failed to get errors: %w", err)
 			}
 		} else {
-			errors, err = db.GetRecentErrors(listLimit)
+			errors, err = db.GetRecentErrors(cmd.Context(), listLimit)
 			if err != nil {
 				return fmt.Errorf("failed to get errors: %w", err)
 			}
@@ -56,7 +56,7 @@ var listCmd = &cobra.Command{
 
 		// Show count in last 24h
 		since := time.Now().Add(-24 * time.Hour)
-		count, err := db.CountErrorsSince(since)
+		count, err := db.CountErrorsSince(cmd.Context(), since)
 		if err == nil {
 			fmt.Printf("Total errors in last 24h: %d\n", count)
 		}

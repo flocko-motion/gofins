@@ -1,8 +1,12 @@
 package db
 
 import (
+	"context"
 	"fmt"
 	"time"
+
+	"github.com/flocko-motion/gofins/pkg/db/generated"
+	"github.com/flocko-motion/gofins/pkg/f"
 )
 
 // ErrorEntry represents an error logged during system operations
@@ -22,131 +26,127 @@ func (db *DB) LogError(source, level, message string, metadata map[string]interf
 		detailsStr := fmt.Sprintf("%v", metadata)
 		details = &detailsStr
 	}
-	
-	query := `
-		INSERT INTO errors (source, error_type, message, details)
-		VALUES ($1, $2, $3, $4)
-	`
-	_, err := db.conn.Exec(query, source, level, message, details)
-	return err
+
+	return genQ().InsertError(context.Background(), generated.InsertErrorParams{
+		Source:    source,
+		ErrorType: level,
+		Message:   message,
+		Details:   f.MaybeStringToNullString(details),
+	})
 }
 
 // LogError is a package-level convenience function
-func LogError(source, errorType, message string, details *string) error {
+func LogError(ctx context.Context, source, errorType, message string, details *string) error {
 	fmt.Printf("[%s] %s: %s\n", source, errorType, message)
-	return Db().LogError(source, errorType, message, map[string]interface{}{"details": details})
+	return genQ().InsertError(ctx, generated.InsertErrorParams{
+		Source:    source,
+		ErrorType: errorType,
+		Message:   message,
+		Details:   f.MaybeStringToNullString(details),
+	})
 }
 
 // GetRecentErrors retrieves the most recent errors
-func GetRecentErrors(limit int) ([]ErrorEntry, error) {
-	db := Db()
-	query := `
-		SELECT id, timestamp, source, error_type, message, details
-		FROM errors
-		ORDER BY timestamp DESC
-		LIMIT $1
-	`
-
-	rows, err := db.conn.Query(query, limit)
+func GetRecentErrors(ctx context.Context, limit int) ([]ErrorEntry, error) {
+	rows, err := genQ().GetRecentErrors(ctx, int32(limit))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get recent errors: %w", err)
 	}
-	defer rows.Close()
 
 	var errors []ErrorEntry
-	for rows.Next() {
-		var e ErrorEntry
-		if err := rows.Scan(&e.ID, &e.Timestamp, &e.Source, &e.ErrorType, &e.Message, &e.Details); err != nil {
-			return nil, err
+	for _, row := range rows {
+		timestamp := time.Time{}
+		if ts := f.NullTimeToMaybeTime(row.Timestamp); ts != nil {
+			timestamp = *ts
 		}
-		errors = append(errors, e)
+		errors = append(errors, ErrorEntry{
+			ID:        int(row.ID),
+			Timestamp: timestamp,
+			Source:    row.Source,
+			ErrorType: row.ErrorType,
+			Message:   row.Message,
+			Details:   f.NullStringToMaybeString(row.Details),
+		})
 	}
 
-	return errors, rows.Err()
+	return errors, nil
 }
 
 // GetErrorsBySource retrieves errors for a specific source
-func GetErrorsBySource(source string, limit int) ([]ErrorEntry, error) {
-	db := Db()
-	query := `
-		SELECT id, timestamp, source, error_type, message, details
-		FROM errors
-		WHERE source = $1
-		ORDER BY timestamp DESC
-		LIMIT $2
-	`
-
-	rows, err := db.conn.Query(query, source, limit)
+func GetErrorsBySource(ctx context.Context, source string, limit int) ([]ErrorEntry, error) {
+	rows, err := genQ().GetErrorsBySource(ctx, generated.GetErrorsBySourceParams{
+		Source: source,
+		Limit:  int32(limit),
+	})
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get errors by source: %w", err)
 	}
-	defer rows.Close()
 
 	var errors []ErrorEntry
-	for rows.Next() {
-		var e ErrorEntry
-		if err := rows.Scan(&e.ID, &e.Timestamp, &e.Source, &e.ErrorType, &e.Message, &e.Details); err != nil {
-			return nil, err
+	for _, row := range rows {
+		timestamp := time.Time{}
+		if ts := f.NullTimeToMaybeTime(row.Timestamp); ts != nil {
+			timestamp = *ts
 		}
-		errors = append(errors, e)
+		errors = append(errors, ErrorEntry{
+			ID:        int(row.ID),
+			Timestamp: timestamp,
+			Source:    row.Source,
+			ErrorType: row.ErrorType,
+			Message:   row.Message,
+			Details:   f.NullStringToMaybeString(row.Details),
+		})
 	}
 
-	return errors, rows.Err()
+	return errors, nil
 }
 
 // CountErrorsSince counts errors since a given timestamp
-func CountErrorsSince(since time.Time) (int, error) {
-	db := Db()
-	query := `SELECT COUNT(*) FROM errors WHERE timestamp >= $1`
-
-	var count int
-	err := db.conn.QueryRow(query, since).Scan(&count)
-	return count, err
+func CountErrorsSince(ctx context.Context, since time.Time) (int, error) {
+	count, err := genQ().CountErrorsSince(ctx, f.MaybeTimeToNullTime(&since))
+	if err != nil {
+		return 0, fmt.Errorf("failed to count errors since: %w", err)
+	}
+	return int(count), nil
 }
 
 // ClearOldErrors deletes errors older than the specified duration
-func ClearOldErrors(olderThan time.Duration) (int, error) {
-	db := Db()
+func ClearOldErrors(ctx context.Context, olderThan time.Duration) (int, error) {
 	cutoff := time.Now().Add(-olderThan)
-	query := `DELETE FROM errors WHERE timestamp < $1`
-
-	result, err := db.conn.Exec(query, cutoff)
+	count, err := genQ().ClearOldErrors(ctx, f.MaybeTimeToNullTime(&cutoff))
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("failed to clear old errors: %w", err)
 	}
-
-	rowsAffected, err := result.RowsAffected()
-	return int(rowsAffected), err
+	return int(count), nil
 }
 
 // GetErrorByID retrieves a specific error by its ID
-func GetErrorByID(id int) (*ErrorEntry, error) {
-	db := Db()
-	query := `
-		SELECT id, timestamp, source, error_type, message, details
-		FROM errors
-		WHERE id = $1
-	`
-
-	var e ErrorEntry
-	err := db.conn.QueryRow(query, id).Scan(&e.ID, &e.Timestamp, &e.Source, &e.ErrorType, &e.Message, &e.Details)
+func GetErrorByID(ctx context.Context, id int) (*ErrorEntry, error) {
+	row, err := genQ().GetErrorByID(ctx, int32(id))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get error by ID: %w", err)
 	}
 
-	return &e, nil
+	timestamp := time.Time{}
+	if ts := f.NullTimeToMaybeTime(row.Timestamp); ts != nil {
+		timestamp = *ts
+	}
+
+	return &ErrorEntry{
+		ID:        int(row.ID),
+		Timestamp: timestamp,
+		Source:    row.Source,
+		ErrorType: row.ErrorType,
+		Message:   row.Message,
+		Details:   f.NullStringToMaybeString(row.Details),
+	}, nil
 }
 
 // ClearAllErrors deletes all errors from the database
-func ClearAllErrors() (int, error) {
-	db := Db()
-	query := `DELETE FROM errors`
-
-	result, err := db.conn.Exec(query)
+func ClearAllErrors(ctx context.Context) (int, error) {
+	count, err := genQ().ClearAllErrors(ctx)
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("failed to clear all errors: %w", err)
 	}
-
-	rowsAffected, err := result.RowsAffected()
-	return int(rowsAffected), err
+	return int(count), nil
 }

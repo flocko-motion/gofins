@@ -20,7 +20,7 @@ var errorsCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// Clear old errors if requested
 		if errorsClear > 0 {
-			deleted, err := db.ClearOldErrors(time.Duration(errorsClear) * 24 * time.Hour)
+			deleted, err := db.ClearOldErrors(cmd.Context(), time.Duration(errorsClear)*24*time.Hour)
 			if err != nil {
 				return fmt.Errorf("failed to clear errors: %w", err)
 			}
@@ -33,13 +33,13 @@ var errorsCmd = &cobra.Command{
 		var err error
 
 		if errorsSource != "" {
-			errors, err = db.GetErrorsBySource(errorsSource, errorsLimit)
+			errors, err = db.GetErrorsBySource(cmd.Context(), errorsSource, errorsLimit)
 			if err != nil {
 				return fmt.Errorf("failed to get errors: %w", err)
 			}
 			fmt.Printf("=== Errors from '%s' (limit %d) ===\n\n", errorsSource, errorsLimit)
 		} else {
-			errors, err = db.GetRecentErrors(errorsLimit)
+			errors, err = db.GetRecentErrors(cmd.Context(), errorsLimit)
 			if err != nil {
 				return fmt.Errorf("failed to get errors: %w", err)
 			}
@@ -63,7 +63,7 @@ var errorsCmd = &cobra.Command{
 
 		// Show count in last 24h
 		since := time.Now().Add(-24 * time.Hour)
-		count, err := db.CountErrorsSince(since)
+		count, err := db.CountErrorsSince(cmd.Context(), since)
 		if err == nil {
 			fmt.Printf("Total errors in last 24h: %d\n", count)
 		}

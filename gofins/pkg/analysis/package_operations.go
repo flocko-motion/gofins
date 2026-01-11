@@ -60,17 +60,17 @@ func DeletePackage(ctx context.Context, userID uuid.UUID, packageID string) erro
 
 	// Clean up PNG files if they exist
 	plotsDir := PathPlots(packageID)
-	if err := cleanupPackageFiles(packageID, plotsDir); err != nil {
+	if err := cleanupPackageFiles(ctx, packageID, plotsDir); err != nil {
 		// Log the error but don't fail the deletion since DB is already cleaned
 		errMsg := fmt.Sprintf("Failed to cleanup files for package %s: %v", packageID, err)
-		_ = db.LogError("analysis.package", "filesystem", "Failed to cleanup package files", &errMsg)
+		_ = db.LogError(ctx, "analysis.package", "filesystem", "Failed to cleanup package files", &errMsg)
 	}
 
 	return nil
 }
 
 // cleanupPackageFiles removes all files associated with a package
-func cleanupPackageFiles(packageID, plotsDir string) error {
+func cleanupPackageFiles(ctx context.Context, packageID, plotsDir string) error {
 	// Check if plots directory exists
 	if _, err := os.Stat(plotsDir); os.IsNotExist(err) {
 		return nil // Directory doesn't exist, nothing to clean up
@@ -88,7 +88,7 @@ func cleanupPackageFiles(packageID, plotsDir string) error {
 	for _, file := range matches {
 		if err := os.Remove(file); err != nil {
 			errMsg := fmt.Sprintf("Failed to delete file %s: %v", file, err)
-			_ = db.LogError("analysis.package", "filesystem", "Failed to delete analysis file", &errMsg)
+			_ = db.LogError(ctx, "analysis.package", "filesystem", "Failed to delete analysis file", &errMsg)
 		} else {
 			deletedCount++
 		}

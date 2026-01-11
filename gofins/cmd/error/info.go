@@ -20,7 +20,7 @@ var infoCmd = &cobra.Command{
 			return fmt.Errorf("invalid error ID: %s", args[0])
 		}
 
-		errorEntry, err := db.GetErrorByID(errorID)
+		errorEntry, err := db.GetErrorByID(cmd.Context(), errorID)
 		if err != nil {
 			if err == sql.ErrNoRows {
 				return fmt.Errorf("error with ID %d not found", errorID)
@@ -34,7 +34,7 @@ var infoCmd = &cobra.Command{
 		fmt.Printf("Source:     %s\n", errorEntry.Source)
 		fmt.Printf("Type:       %s\n", errorEntry.ErrorType)
 		fmt.Printf("Message:    %s\n", errorEntry.Message)
-		
+
 		if errorEntry.Details != nil && *errorEntry.Details != "" {
 			fmt.Printf("\nDetails:\n%s\n", *errorEntry.Details)
 		}

@@ -12,7 +12,7 @@ var pricesCmd = &cobra.Command{
 	Short: "Run price update once (fetch historical prices from FMP)",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		fmt.Println("Running price update...")
-		if err := updater.UpdatePricesOnce(); err != nil {
+		if err := updater.UpdatePricesOnce(cmd.Context()); err != nil {
 			return fmt.Errorf("price update failed: %w", err)
 		}
 		fmt.Println("Price update completed successfully")

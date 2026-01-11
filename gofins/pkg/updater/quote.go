@@ -158,7 +158,7 @@ func convertQuotesToUSD(ctx context.Context, bulkQuotes map[string]*types.PriceD
 			if err != nil {
 				conversionErrors++
 				// Log to database for persistence
-				_ = db.LogError("updater.quote", "conversion_error",
+				_ = db.LogError(ctx, "updater.quote", "conversion_error",
 					fmt.Sprintf("Failed to convert %s from %s to USD: %v", symbol, currency, err),
 					nil)
 				continue

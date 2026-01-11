@@ -25,7 +25,7 @@ var clearCmd = &cobra.Command{
 			}
 		}
 
-		deleted, err := db.ClearAllErrors()
+		deleted, err := db.ClearAllErrors(cmd.Context())
 		if err != nil {
 			return fmt.Errorf("failed to clear errors: %w", err)
 		}

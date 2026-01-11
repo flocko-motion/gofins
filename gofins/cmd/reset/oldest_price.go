@@ -37,7 +37,7 @@ var oldestPriceCmd = &cobra.Command{
 			// Get oldest monthly price for this ticker
 			oldestDate, err := db.GetOldestPriceDate(ticker)
 			if err != nil {
-				_ = db.LogError("reset.oldest_price", "database", "Failed to query oldest price", f.Ptr(err.Error()))
+				_ = db.LogError(cmd.Context(), "reset.oldest_price", "database", "Failed to query oldest price", f.Ptr(err.Error()))
 				failed++
 				continue
 			}
@@ -53,7 +53,7 @@ var oldestPriceCmd = &cobra.Command{
 				Ticker:      ticker,
 				OldestPrice: oldestDate,
 			}}); err != nil {
-				_ = db.LogError("reset.oldest_price", "database", "Failed to update symbol", f.Ptr(err.Error()))
+				_ = db.LogError(cmd.Context(), "reset.oldest_price", "database", "Failed to update symbol", f.Ptr(err.Error()))
 				failed++
 				continue
 			}

@@ -52,7 +52,7 @@ var benchAnalysisCmd = &cobra.Command{
 			if err != nil {
 				if i < 5 {
 					errMsg := fmt.Sprintf("Error fetching prices for %s: %v", ticker, err)
-					_ = db.LogError("bench.analysis", "database", "Failed to fetch prices", &errMsg)
+					_ = db.LogError(cmd.Context(), "bench.analysis", "database", "Failed to fetch prices", &errMsg)
 				}
 				continue
 			}

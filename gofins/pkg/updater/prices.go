@@ -136,7 +136,7 @@ func UpdatePrices(ctx context.Context) {
 		default:
 		}
 
-		if err := updatePricesImpl(log, config); err != nil {
+		if err := updatePricesImpl(ctx, log, config); err != nil {
 			log.Errorf("Price update failed: %v\n", err)
 		}
 
@@ -146,13 +146,13 @@ func UpdatePrices(ctx context.Context) {
 	}
 }
 
-func UpdatePricesOnce() error {
+func UpdatePricesOnce(ctx context.Context) error {
 	log := NewLogger("Prices")
 	config := DefaultPriceUpdateConfig()
-	return updatePricesImpl(log, config)
+	return updatePricesImpl(ctx, log, config)
 }
 
-func updatePricesImpl(log *log.Logger, config PriceUpdateConfig) error {
+func updatePricesImpl(ctx context.Context, log *log.Logger, config PriceUpdateConfig) error {
 	// Ensure last batch write completes before exit
 	defer batchWritePrices(nil, nil, nil, config, log)
 
@@ -215,7 +215,7 @@ func updatePricesImpl(log *log.Logger, config PriceUpdateConfig) error {
 					// Process with WriteToDb=false to collect data
 					workerConfig := config
 					workerConfig.WriteToDb = false
-					updatedSymbol, monthly, weekly, err := updatePrices(symbol, workerConfig, log)
+					updatedSymbol, monthly, weekly, err := updatePrices(ctx, symbol, workerConfig, log)
 
 					statsMu.Lock()
 					if updatedSymbol.LastPriceStatus != nil {
@@ -286,7 +286,7 @@ func updatePricesImpl(log *log.Logger, config PriceUpdateConfig) error {
 	}
 }
 
-func updatePrices(symbol types.Symbol, config PriceUpdateConfig, log *log.Logger) (types.Symbol, []types.PriceData, []types.PriceData, error) {
+func updatePrices(ctx context.Context, symbol types.Symbol, config PriceUpdateConfig, log *log.Logger) (types.Symbol, []types.PriceData, []types.PriceData, error) {
 	startTime := time.Now()
 
 	dailyPrices, err := fmp.FetchPriceHistory(symbol.Ticker)
@@ -368,7 +368,7 @@ func updatePrices(symbol types.Symbol, config PriceUpdateConfig, log *log.Logger
 			if len(monthly) > 0 {
 				tickerInfo = fmt.Sprintf("%s (price data has ticker: %s)", symbol.Ticker, monthly[0].SymbolTicker)
 			}
-			_ = db.LogError("updater.prices", "db_constraint_violation",
+			_ = db.LogError(ctx, "updater.prices", "db_constraint_violation",
 				fmt.Sprintf("Failed to insert monthly prices for %s: %v", tickerInfo, err), nil)
 
 			return symbol, monthly, weekly, fmt.Errorf("failed to insert monthly prices: %w", err)
@@ -379,7 +379,7 @@ func updatePrices(symbol types.Symbol, config PriceUpdateConfig, log *log.Logger
 			db.PutSymbols([]types.Symbol{symbol})
 
 			// Log foreign key violations as errors
-			_ = db.LogError("updater.prices", "db_constraint_violation",
+			_ = db.LogError(ctx, "updater.prices", "db_constraint_violation",
 				fmt.Sprintf("Failed to insert weekly prices for %s: %v", symbol.Ticker, err), nil)
 
 			return symbol, monthly, weekly, fmt.Errorf("failed to insert weekly prices: %w", err)

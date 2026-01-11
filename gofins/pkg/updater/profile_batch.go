@@ -81,7 +81,7 @@ func updateProfilesBatchImpl(ctx context.Context, log *log.Logger) error {
 	// Convert to symbols with USD market caps
 	now := time.Now()
 	weekStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
-	symbols := convertProfilesToSymbols(profiles, weekStart, log)
+	symbols := convertProfilesToSymbols(ctx, profiles, weekStart, log)
 	log.Printf("  Converted %d profiles to symbols\n", len(symbols))
 
 	// Update database in batches
@@ -119,7 +119,7 @@ func UpdateProfilesBatchOnce(ctx context.Context) error {
 }
 
 // convertProfilesToSymbols converts FMP profiles to Symbol types with currency conversion
-func convertProfilesToSymbols(profiles []*fmp.Profile, date time.Time, log *log.Logger) []types.Symbol {
+func convertProfilesToSymbols(ctx context.Context, profiles []*fmp.Profile, date time.Time, log *log.Logger) []types.Symbol {
 	var symbols []types.Symbol
 	conversionErrors := 0
 
@@ -149,7 +149,7 @@ func convertProfilesToSymbols(profiles []*fmp.Profile, date time.Time, log *log.
 			if err != nil {
 				conversionErrors++
 				// Log to database for persistence
-				_ = db.LogError("updater.profile_batch", "conversion_error",
+				_ = db.LogError(ctx, "updater.profile_batch", "conversion_error",
 					fmt.Sprintf("Failed to convert market cap for %s from %s to USD: %v", profile.Symbol, currency, err),
 					nil)
 				status = types.StatusFailed

@@ -38,7 +38,7 @@ func RunAllUpdaters(ctx context.Context) {
 
 		// Step 4: Update prices (can now use incremental updates from quotes)
 		log.Printf("Step 4/5: Updating prices...\n")
-		if err := UpdatePricesOnce(); err != nil {
+		if err := UpdatePricesOnce(ctx); err != nil {
 			log.Errorf("Price update failed: %v\n", err)
 		}
 
