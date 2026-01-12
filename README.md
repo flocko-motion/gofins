@@ -27,6 +27,29 @@ deployment/          # Production Docker setup (docker-compose, deploy.sh)
 
 All user data (ratings, favorites, notes, analyses) scoped per user.
 
+## MCP Integration with Claude
+
+FINS can be connected to Claude via the Model Context Protocol (MCP) to expose financial data and user preferences directly to Claude for enhanced analysis and interaction.
+
+### Available via MCP:
+
+**User Data:**
+- Favorites (favs)
+- Personal ratings
+- Notes
+
+**Market Data:**
+- Symbol information (company profiles)
+- Price histories
+- Real-time quotes
+- Statistics (e.g. CAGR, variance)
+
+**Authentication:**
+- Header-based authentication via `X-Remote-User`
+- Maintains user isolation and data privacy
+
+This enables Claude to assist with portfolio analysis, stock research, and personalized financial insights while respecting user data boundaries.
+
 ## Quick Start
 
 ### Development
